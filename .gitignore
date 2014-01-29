@@ -11,3 +11,11 @@
 *.lai
 *.la
 *.a
+
+# Build directory
+build/
+
+# Trash files
+*~
+*.swo
+*.swp
