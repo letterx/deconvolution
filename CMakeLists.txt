@@ -29,6 +29,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 set(deconvolve-sources
     src/deconvolve.cpp
+    src/least-sq.cpp
     )
 
 ###
