@@ -9,7 +9,7 @@ namespace deconvolution {
 template <int D>
 using Array = boost::multi_array<double, D>;
 template <int D>
-using LinearSystem = std::function<void(const Array<D>&, Array<D>&)>;
+using LinearSystem = std::function<Array<D>(const Array<D>&)>;
 
 template <int D> class Regularizer;
 

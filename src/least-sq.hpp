@@ -5,7 +5,7 @@
 
 namespace deconvolution {
 template <int D>
-void leastSquares(const Array<D>& y, const LinearSystem<D>& H, Array<D>& x);
+void leastSquares(const LinearSystem<D>& Q, const Array<D>& Ht_y, Array<D>& x);
 }
 
 #endif

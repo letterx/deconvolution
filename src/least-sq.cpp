@@ -1,17 +1,37 @@
 #include "least-sq.hpp"
+#include "common.hpp"
+#include "util.hpp"
 #include <lbfgs.h>
 #include <iostream>
 
 namespace deconvolution {
 
+template <int D>
+struct LeastSquareData {
+    const LinearSystem<D>& Q;
+    const Array<D>& Ht_y;
+    const Array<D>& x;
+};
+
+template <int D>
 static double leastSqEvaluate(
         void *instance,
-        const double *x,
+        const double *xData,
         double *g,
         const int n,
         const double step) {
-    return 0;
-    
+    const auto* data = static_cast<LeastSquareData<D>*>(instance);
+    const auto& Q = data->Q;
+    const auto& Ht_y = data->Ht_y;
+    const auto& x = data->x;
+    ASSERT(x.data() == xData);
+    ASSERT(x.num_elements() == n);
+    auto Qx = Q(x);
+    auto xQx = dot(x, Qx);
+    auto xHt_y = dot(x, Ht_y);
+    for (int i = 0; i < n; ++i)
+        g[i] = 2*(Qx.data()[i] - Ht_y.data()[i]);
+    return xQx - 2*xHt_y;
 }
 
 static int leastSqProgress(
@@ -32,22 +52,27 @@ static int leastSqProgress(
     return 0;
 }
 
+/*
+ * Solve a least squares problem min |y - Hx|
+ * This is a quadratic program x^TH^THx - 2x^TH^Ty + y^Ty
+ * Inputs are Q = H^TH, and H^Ty
+ */
 template <int D>
-void leastSquares(const Array<D>& y, const LinearSystem<D>& H, Array<D>& x) {
+void leastSquares(const LinearSystem<D>& Q, const Array<D>& Ht_y, Array<D>& x) {
     auto n = x.num_elements();
     lbfgs_parameter_t params;
     double fVal = 0;
 
     lbfgs_parameter_init(&params);
 
-    auto retCode = lbfgs(n, x.origin(), &fVal, leastSqEvaluate, leastSqProgress, NULL, &params);
+    auto retCode = lbfgs(n, x.origin(), &fVal, leastSqEvaluate<D>, leastSqProgress, NULL, &params);
     std::cout << "Finished: " << retCode << "\n";
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template void leastSquares<d>(const Array<d>& y, const LinearSystem<d>& H, Array<d>& x);
+    template void leastSquares<d>(const LinearSystem<d>& Q, const Array<d>& Ht_y, Array<d>& x);
 INSTANTIATE_DECONVOLVE(1)
-INSTANTIATE_DECONVOLVE(2)
-INSTANTIATE_DECONVOLVE(3)
+//INSTANTIATE_DECONVOLVE(2)
+//INSTANTIATE_DECONVOLVE(3)
 #undef INSTANTIATE_DECONVOLVE
 }
