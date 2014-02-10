@@ -14,8 +14,10 @@
 
 # Build directory
 build/
+release/
 
 # Trash files
 *~
 *.swo
 *.swp
+.DS_Store

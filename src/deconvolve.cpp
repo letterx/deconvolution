@@ -1,11 +1,17 @@
 #include "deconvolve.hpp"
+#include "least-sq.hpp"
+#include "util.hpp"
 
 namespace deconvolution{
 
 
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Q, const Regularizer<D>& R) {
-    return {};
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R) {
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.01*x; };
+    Array<D> Ht_y = Ht(y);
+    Array<D> x = Ht_y;
+    leastSquares<D>(Q, Ht_y, x);
+    return x;
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \

@@ -25,7 +25,8 @@ static double leastSqEvaluate(
     const auto& Ht_y = data->Ht_y;
     const auto& x = data->x;
     ASSERT(x.data() == xData);
-    ASSERT(x.num_elements() == n);
+    ASSERT(int(x.num_elements()) == n);
+
     auto Qx = Q(x);
     auto xQx = dot(x, Qx);
     auto xHt_y = dot(x, Ht_y);
@@ -64,15 +65,16 @@ void leastSquares(const LinearSystem<D>& Q, const Array<D>& Ht_y, Array<D>& x) {
     double fVal = 0;
 
     lbfgs_parameter_init(&params);
+    LeastSquareData<D> algData = {Q, Ht_y, x};
 
-    auto retCode = lbfgs(n, x.origin(), &fVal, leastSqEvaluate<D>, leastSqProgress, NULL, &params);
+    auto retCode = lbfgs(n, x.origin(), &fVal, leastSqEvaluate<D>, leastSqProgress, &algData, &params);
     std::cout << "Finished: " << retCode << "\n";
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
     template void leastSquares<d>(const LinearSystem<d>& Q, const Array<d>& Ht_y, Array<d>& x);
 INSTANTIATE_DECONVOLVE(1)
-//INSTANTIATE_DECONVOLVE(2)
-//INSTANTIATE_DECONVOLVE(3)
+INSTANTIATE_DECONVOLVE(2)
+INSTANTIATE_DECONVOLVE(3)
 #undef INSTANTIATE_DECONVOLVE
 }

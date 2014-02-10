@@ -11,7 +11,7 @@ using Array = boost::multi_array<double, D>;
 template <int D>
 using LinearSystem = std::function<Array<D>(const Array<D>&)>;
 
-template <int D> class Regularizer;
+template <int D> class Regularizer {};
 
 /* 
  * Solve a linear inverse system of the form
@@ -20,7 +20,7 @@ template <int D> class Regularizer;
  * observables. 
  */
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Q, const Regularizer<D>& R);
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R);
 
 }
 

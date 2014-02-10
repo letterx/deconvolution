@@ -35,15 +35,16 @@ set(deconvolve-sources
 ###
 ### Build configuration
 ### 
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 
 # GCC settings
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR 
+        ${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
 	#
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
-	set(CMAKE_CXX_FLAGS_DEBUG "-g")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
+    #set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+    #set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
+    #set(CMAKE_CXX_FLAGS_DEBUG "-g")
+    #set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
 	#
     set(GCC_WARNING_FLAGS "-Wall -Wextra -pedantic -Wold-style-cast -Woverloaded-virtual -Wno-unused-parameter")
     set(GCC_WARNING_FLAGS "${GCC_WARNING_FLAGS} -Werror")
