@@ -32,7 +32,23 @@ static double leastSqEvaluate(
     auto xHt_y = dot(x, Ht_y);
     for (int i = 0; i < n; ++i)
         g[i] = 2*(Qx.data()[i] - Ht_y.data()[i]);
-    return xQx - 2*xHt_y;
+
+    // 1/x-barrier [0, 255]
+    double barrier = 0.0;
+    /*
+    const double scale = 1.0;
+    const double threshold = 0.999999999;
+    const double eps = 10.0;
+    for (int i = 0; i < n; ++i) {
+        auto val = xData[i];
+        if (val <= -eps*threshold) val = -eps*threshold;
+        if (val >= 255.0+eps*threshold) val = 255.0+eps*threshold;
+        barrier += scale*(1.0/(val+eps) + 1.0/(255.0-val+eps));
+        g[i] += scale*(-1.0/((val+eps)*(val+eps)) + 1.0/((255.0-val+eps)*(255.0-val+eps)));
+    }
+    */
+    std::cout << "Evaluate: " << xQx - 2*xHt_y + barrier << "\n";
+    return xQx - 2*xHt_y + barrier;
 }
 
 static int leastSqProgress(

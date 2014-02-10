@@ -61,14 +61,20 @@ int main(int argc, char **argv) {
         }
     }
 
-    int kerSize = 11;
+    int kerSize = 21;
+    double sigma = 1.0;
     deconvolution::Array<2> ker{boost::extents[kerSize][kerSize]};
-    for (int i = 0; i < kerSize; ++i) {
-        ker[i][i] += 0.5/kerSize;
-        ker[i][kerSize-i-1] += 0.5/kerSize;
-    }
-    std::vector<int> kerBase{-5, -5};
+    std::vector<int> kerBase{-10, -10};
     ker.reindex(kerBase);
+    for (int i = ker.index_bases()[0];
+            i != ker.index_bases()[0] + int(ker.shape()[0]);
+            ++i) {
+        for (int j = ker.index_bases()[1];
+                j != ker.index_bases()[1] + int(ker.shape()[1]);
+                ++j) {
+            ker[i][j] = exp(-(i*i + j*j)/(2*sigma*sigma))/(2*3.14159*sigma*sigma);
+        }
+    }
 
     auto blur = convolve(y, ker);
 
