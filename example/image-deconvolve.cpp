@@ -5,6 +5,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <boost/program_options.hpp>
 #include "deconvolve.hpp"
+#include "regularizer.hpp"
 #include "convolve.hpp"
 
 int main(int argc, char **argv) {
@@ -94,7 +95,7 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, deconvolution::Regularizer<2>{});
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, deconvolution::DummyRegularizer<2>{});
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
