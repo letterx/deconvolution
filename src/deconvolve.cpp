@@ -8,7 +8,11 @@ namespace deconvolution{
 
 template <int D>
 struct DeconvolveData {
-
+    Array<D>& x;
+    const Array<D>& Ht_y;
+    const LinearSystem<D>& Q;
+    const Regularizer<D>& R;
+    int numLambda;
 };
 
 template <int D>
@@ -18,7 +22,21 @@ static double deconvolveEvaluate(
         double* grad,
         const int n,
         const double step) {
-    return 0;
+    auto value = 0.0;
+    auto* data = static_cast<DeconvolveData<D>*>(instance);
+    const auto& R = data->R;
+    auto& x = data->x;
+    const auto numPrimalVars = x.num_elements();
+    const auto numPerSubproblem = numPrimalVars*R.numSubproblems();
+
+    for (int i = 0; i < n; ++i)
+        grad[i] = 0;
+
+    for (int i = 0; i < R.numSubproblems(); ++i)
+        value += R.evaluate(i, dualVars+i*numPerSubproblem, 0.001, grad+i*numPerSubproblem);
+
+
+    return value;
 }
 
 static int deconvolveProgress(
@@ -62,7 +80,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
-    auto algData = DeconvolveData<D>{};
+    auto algData = DeconvolveData<D>{x, Ht_y, Q, R, numLambda};
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 
