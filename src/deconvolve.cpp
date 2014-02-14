@@ -3,6 +3,8 @@
 #include "util.hpp"
 #include "regularizer.hpp"
 #include <lbfgs.h>
+#include <limits>
+#include <iostream>
 
 namespace deconvolution{
 
@@ -24,18 +26,55 @@ static double deconvolveEvaluate(
         const double step) {
     auto value = 0.0;
     auto* data = static_cast<DeconvolveData<D>*>(instance);
-    const auto& R = data->R;
     auto& x = data->x;
+    const auto& b = data->b;
+    const auto& Q = data->Q;
+    const auto& R = data->R;
     const auto numPrimalVars = x.num_elements();
-    const auto numPerSubproblem = numPrimalVars*R.numSubproblems();
+    const auto numSubproblems = R.numSubproblems();
+    const auto numLabels = R.numLabels();
+    const auto numPerSubproblem = numPrimalVars*numLabels;
+    const auto numLambda = data->numLambda;
+    const double* nu = dualVars + numLambda;
+    const double t = 0.001;
+    auto bPlusNu = b;
+    for (int i = 0; i < n; ++i)
+        bPlusNu.data()[i] += nu[i];
 
     for (int i = 0; i < n; ++i)
         grad[i] = 0;
 
     for (int i = 0; i < R.numSubproblems(); ++i)
-        value += R.evaluate(i, dualVars+i*numPerSubproblem, 0.001, grad+i*numPerSubproblem);
+        value += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
 
+    value += quadraticMin<D>(Q, bPlusNu, x);
+    for (int i = 0; i < n; ++i)
+        grad[i+numLambda] = -x.data()[i];
 
+    auto minTable = std::vector<double>(numLabels, 0);
+    for (int i = 0; i < n; ++i) {
+        auto nu_i = nu[i];
+        double minValue = std::numeric_limits<double>::max();
+        for (int xi = 0; i < numLabels; ++xi) {
+            double lambdaSum = 0;
+            for (int alpha = 0; alpha < numSubproblems; ++alpha) 
+                lambdaSum += dualVars[alpha*numPerSubproblem+i*numLabels+xi];
+            minTable[xi] = lambdaSum + nu_i*R.getLabel(i, xi);
+            minValue = std::min(minValue, minTable[xi]);
+        }
+        double expSum = 0;
+        double nuGrad = 0;
+        for (int xi = 0; i < numLabels; ++xi) {
+            minTable[xi] = exp(-(minTable[xi]-minValue)/t);
+            expSum += minTable[xi];
+            nuGrad += minTable[xi]*R.getLabel(i, xi);
+        }
+        value += minValue - t*log(expSum);
+        grad[i+numLambda] += nuGrad/expSum;
+        for (int alpha = 0; alpha < numSubproblems; ++alpha)
+            for (int xi = 0; xi < numLabels; ++xi) 
+                grad[alpha*numPerSubproblem+i*numLabels+xi] += minTable[xi]/expSum;
+    }
     return value;
 }
 
