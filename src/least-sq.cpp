@@ -62,9 +62,9 @@ static int leastSqProgress(
         int n,
         int k,
         int ls) {
-    printf("Iteration %d:\n", k);
-    printf("  fx = %f", fx);
-    printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("\tIteration %d:\n", k);
+    printf("\t  fx = %f", fx);
+    printf("\t  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
     printf("\n");
     return 0;
 }

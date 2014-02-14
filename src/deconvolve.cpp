@@ -2,9 +2,42 @@
 #include "least-sq.hpp"
 #include "util.hpp"
 #include "regularizer.hpp"
+#include <lbfgs.h>
 
 namespace deconvolution{
 
+template <int D>
+struct DeconvolveData {
+
+};
+
+template <int D>
+static double deconvolveEvaluate(
+        void* instance,
+        const double* dualVars, 
+        double* grad,
+        const int n,
+        const double step) {
+    return 0;
+}
+
+static int deconvolveProgress(
+        void *instance,
+        const double *x,
+        const double *g,
+        const double fx,
+        const double xnorm,
+        const double gnorm,
+        const double step,
+        int n,
+        int k,
+        int ls) {
+    printf("Deconvolve Iteration %d:\n", k);
+    printf("  fx = %f", fx);
+    printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("\n");
+    return 0;
+}
 
 template <int D>
 Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R) {
@@ -25,6 +58,14 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
         x.data()[i] = 0;
     }
     leastSquares<D>(Q, Ht_y, x);
+
+    lbfgs_parameter_t params;
+    double fVal = 0;
+    lbfgs_parameter_init(&params);
+    auto algData = DeconvolveData<D>{};
+    auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
+    std::cout << "Deconvolve finished: " << retCode << "\n";
+
     return x;
 }
 
