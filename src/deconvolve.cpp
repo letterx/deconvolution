@@ -30,15 +30,15 @@ static double deconvolveEvaluate(
     const auto& b = data->b;
     const auto& Q = data->Q;
     const auto& R = data->R;
-    const auto numPrimalVars = x.num_elements();
+    const auto numPrimalVars = int(x.num_elements());
     const auto numSubproblems = R.numSubproblems();
     const auto numLabels = R.numLabels();
     const auto numPerSubproblem = numPrimalVars*numLabels;
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = 0.001;
+    const double t = 0.1;
     auto bPlusNu = b;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < numPrimalVars; ++i)
         bPlusNu.data()[i] += nu[i];
 
     for (int i = 0; i < n; ++i)
@@ -48,14 +48,14 @@ static double deconvolveEvaluate(
         value += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
 
     value += quadraticMin<D>(Q, bPlusNu, x);
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < numPrimalVars; ++i)
         grad[i+numLambda] = -x.data()[i];
 
     auto minTable = std::vector<double>(numLabels, 0);
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < numPrimalVars; ++i) {
         auto nu_i = nu[i];
         double minValue = std::numeric_limits<double>::max();
-        for (int xi = 0; i < numLabels; ++xi) {
+        for (int xi = 0; xi < numLabels; ++xi) {
             double lambdaSum = 0;
             for (int alpha = 0; alpha < numSubproblems; ++alpha) 
                 lambdaSum += dualVars[alpha*numPerSubproblem+i*numLabels+xi];
@@ -64,7 +64,7 @@ static double deconvolveEvaluate(
         }
         double expSum = 0;
         double nuGrad = 0;
-        for (int xi = 0; i < numLabels; ++xi) {
+        for (int xi = 0; xi < numLabels; ++xi) {
             minTable[xi] = exp(-(minTable[xi]-minValue)/t);
             expSum += minTable[xi];
             nuGrad += minTable[xi]*R.getLabel(i, xi);
@@ -75,7 +75,9 @@ static double deconvolveEvaluate(
             for (int xi = 0; xi < numLabels; ++xi) 
                 grad[alpha*numPerSubproblem+i*numLabels+xi] += minTable[xi]/expSum;
     }
-    return value;
+    for (int i = 0; i < n; ++i)
+        grad[i] = -grad[i];
+    return -value;
 }
 
 static int deconvolveProgress(

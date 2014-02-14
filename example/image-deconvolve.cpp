@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     }
 
     int kerSize = 21;
-    double sigma = 1.0;
+    double sigma = 3.0;
     deconvolution::Array<2> ker{boost::extents[kerSize][kerSize]};
     std::vector<int> kerBase{-10, -10};
     ker.reindex(kerBase);
@@ -85,9 +85,11 @@ int main(int argc, char **argv) {
         }
     }
 
+    /*
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
     cv::waitKey(0);
+    */
 
 
     deconvolution::LinearSystem<2> H = 
