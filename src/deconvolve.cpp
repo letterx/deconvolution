@@ -1,5 +1,5 @@
 #include "deconvolve.hpp"
-#include "least-sq.hpp"
+#include "quadratic-min.hpp"
 #include "util.hpp"
 #include "regularizer.hpp"
 #include <lbfgs.h>
@@ -9,7 +9,7 @@ namespace deconvolution{
 template <int D>
 struct DeconvolveData {
     Array<D>& x;
-    const Array<D>& Ht_y;
+    const Array<D>& b;
     const LinearSystem<D>& Q;
     const Regularizer<D>& R;
     int numLambda;
@@ -59,8 +59,10 @@ static int deconvolveProgress(
 
 template <int D>
 Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R) {
-    Array<D> Ht_y = Ht(y);
-    Array<D> x = Ht_y;
+    Array<D> b = 2*Ht(y);
+    Array<D> x = b;
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
+
     int numPrimalVars = x.num_elements();
     int numLambda = numPrimalVars*R.numSubproblems()*R.numLabels();
     int numDualVars = numLambda + numPrimalVars; // Including all lambda vars + vector nu
@@ -71,16 +73,15 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
         lambda[i] = 0;
     for (int i = 0; i < numPrimalVars; ++i)
         nu[i] = 0;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
     for (size_t i = 0; i < x.num_elements(); ++i) {
         x.data()[i] = 0;
     }
-    leastSquares<D>(Q, Ht_y, x);
+    quadraticMin<D>(Q, b, x);
 
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
-    auto algData = DeconvolveData<D>{x, Ht_y, Q, R, numLambda};
+    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda};
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 
