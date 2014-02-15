@@ -24,7 +24,6 @@ static double deconvolveEvaluate(
         double* grad,
         const int n,
         const double step) {
-    auto value = 0.0;
     auto* data = static_cast<DeconvolveData<D>*>(instance);
     auto& x = data->x;
     const auto& b = data->b;
@@ -36,7 +35,7 @@ static double deconvolveEvaluate(
     const auto numPerSubproblem = numPrimalVars*numLabels;
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = 0.1;
+    const double t = 1;
     auto bPlusNu = b;
     for (int i = 0; i < numPrimalVars; ++i)
         bPlusNu.data()[i] += nu[i];
@@ -44,13 +43,15 @@ static double deconvolveEvaluate(
     for (int i = 0; i < n; ++i)
         grad[i] = 0;
 
+    double regularizerObjective = 0;
     for (int i = 0; i < R.numSubproblems(); ++i)
-        value += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
+        regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
 
-    value += quadraticMin<D>(Q, bPlusNu, x);
+    double dataObjective = quadraticMin<D>(Q, bPlusNu, x);
     for (int i = 0; i < numPrimalVars; ++i)
         grad[i+numLambda] = -x.data()[i];
 
+    double unaryObjective = 0;
     auto minTable = std::vector<double>(numLabels, 0);
     for (int i = 0; i < numPrimalVars; ++i) {
         auto nu_i = nu[i];
@@ -69,7 +70,7 @@ static double deconvolveEvaluate(
             expSum += minTable[xi];
             nuGrad += minTable[xi]*R.getLabel(i, xi);
         }
-        value += minValue - t*log(expSum);
+        unaryObjective += minValue - t*log(expSum);
         grad[i+numLambda] += nuGrad/expSum;
         for (int alpha = 0; alpha < numSubproblems; ++alpha)
             for (int xi = 0; xi < numLabels; ++xi) 
@@ -77,7 +78,9 @@ static double deconvolveEvaluate(
     }
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
-    return -value;
+    double objective = -(regularizerObjective + dataObjective + unaryObjective);
+    std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
+    return objective;
 }
 
 static int deconvolveProgress(

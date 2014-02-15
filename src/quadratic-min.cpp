@@ -33,7 +33,7 @@ static double quadraticEvaluate(
     for (int i = 0; i < n; ++i)
         g[i] = 2*Qx.data()[i] - b.data()[i];
 
-    std::cout << "Evaluate: " << xQx - bx << "\n";
+    //std::cout << "Evaluate: " << xQx - bx << "\n";
     return xQx - bx;
 }
 
@@ -48,10 +48,12 @@ static int quadraticProgress(
         int n,
         int k,
         int ls) {
+    /*
     printf("\tIteration %d:\n", k);
     printf("\t  fx = %f", fx);
     printf("\t  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
     printf("\n");
+    */
     return 0;
 }
 
@@ -65,7 +67,9 @@ double quadraticMin(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) {
     QuadraticMinData<D> algData = {Q, b, x};
 
     auto retCode = lbfgs(n, x.origin(), &fVal, quadraticEvaluate<D>, quadraticProgress, &algData, &params);
-    std::cout << "\tFinished quadraticMin: " << retCode << ",\t" << fVal << "\n";
+    //std::cout << "\tFinished quadraticMin: " << retCode << ",\t" << fVal << "\n";
+    if (retCode < 0)
+        std::cerr << "*ERROR*: Finished quadraticMin with status " << retCode << "\n";
     return fVal;
 }
 
