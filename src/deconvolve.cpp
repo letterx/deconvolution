@@ -15,6 +15,7 @@ struct DeconvolveData {
     const LinearSystem<D>& Q;
     const Regularizer<D>& R;
     int numLambda;
+    double constantTerm;
 };
 
 template <int D>
@@ -29,6 +30,7 @@ static double deconvolveEvaluate(
     const auto& b = data->b;
     const auto& Q = data->Q;
     const auto& R = data->R;
+    const double constantTerm = data->constantTerm;
     const auto numPrimalVars = int(x.num_elements());
     const auto numSubproblems = R.numSubproblems();
     const auto numLabels = R.numLabels();
@@ -47,7 +49,7 @@ static double deconvolveEvaluate(
     for (int i = 0; i < R.numSubproblems(); ++i)
         regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
 
-    double dataObjective = quadraticMin<D>(Q, bPlusNu, x);
+    double dataObjective = quadraticMin<D>(Q, bPlusNu, x) + constantTerm;
     for (int i = 0; i < numPrimalVars; ++i)
         grad[i+numLambda] = -x.data()[i];
 
@@ -106,6 +108,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     Array<D> b = 2*Ht(y);
     Array<D> x = b;
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
+    double constantTerm = dot(y, y);
 
     int numPrimalVars = x.num_elements();
     int numLambda = numPrimalVars*R.numSubproblems()*R.numLabels();
@@ -125,7 +128,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
-    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda};
+    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 
