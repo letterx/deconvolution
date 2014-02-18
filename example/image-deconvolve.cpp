@@ -97,7 +97,8 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, deconvolution::DummyRegularizer<2>{});
+    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, 128};
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R);
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {

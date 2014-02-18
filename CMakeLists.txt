@@ -30,6 +30,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(deconvolve-sources
     src/deconvolve.cpp
     src/quadratic-min.cpp
+    src/regularizer.cpp
     )
 
 ###
