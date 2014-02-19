@@ -1,4 +1,5 @@
 set(test-sources
+    test-regularizer.cpp
 )
 
 ###

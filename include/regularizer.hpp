@@ -1,7 +1,9 @@
 #ifndef _DECONVOLVE_REGULARIZER_HPP_
 #define _DECONVOLVE_REGULARIZER_HPP_
 
+#include "deconvolve.hpp"
 #include <vector>
+#include <functional>
 
 namespace deconvolution {
 template <int D> 
@@ -30,10 +32,14 @@ class DummyRegularizer : public Regularizer<D> {
 template <int D>
 class GridRegularizer : public Regularizer<D> {
     public:
-        GridRegularizer(const std::vector<int>& extents, int numLabels) 
+        typedef std::function<double(int, int)> EdgeFn;
+        GridRegularizer(const std::vector<int>& extents, int numLabels, const EdgeFn& edgeFn) 
             : _extents(extents)
             , _numLabels(numLabels)
-        { }
+            , _edgeFn(edgeFn)
+        { 
+            assert(_extents.size() == D);
+        }
 
         virtual int numSubproblems() const override { return D; }
         virtual int numLabels() const override { return _numLabels; }
@@ -42,6 +48,7 @@ class GridRegularizer : public Regularizer<D> {
     private:
         std::vector<int> _extents;
         int _numLabels;
+        EdgeFn _edgeFn;
 };
 }
 
