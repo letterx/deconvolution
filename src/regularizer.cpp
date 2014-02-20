@@ -1,4 +1,5 @@
 #include "regularizer.hpp"
+#include <iostream>
 
 namespace deconvolution {
 
@@ -35,6 +36,11 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     std::vector<double> m_R(_numLabels*width, 0);
     std::vector<double> labelCosts(_numLabels, 0);
     for (int i = 0; i < numBases; ++i, incrementBase(_extents, subproblem, base)) {
+        /*
+        std::cout << "\tbase: ";
+        for (auto idx : base) std::cout << idx << " ";
+        std::cout << "\n";
+        */
         std::vector<int> point = base;
         point.push_back(0);
         int& pointIndex = point[subproblem];

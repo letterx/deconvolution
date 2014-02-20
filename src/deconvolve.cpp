@@ -82,6 +82,7 @@ static double deconvolveEvaluate(
         grad[i] = -grad[i];
     double objective = -(regularizerObjective + dataObjective + unaryObjective);
     std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
+
     return objective;
 }
 
@@ -123,12 +124,15 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     for (size_t i = 0; i < x.num_elements(); ++i) {
         x.data()[i] = 0;
     }
+    std::cout << "Finding least-squares fit\n";
     quadraticMin<D>(Q, b, x);
 
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
+    //params.max_iterations = 5;
     auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
+    std::cout << "Begin lbfgs\n";
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 

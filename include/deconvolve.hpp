@@ -2,6 +2,9 @@
 #define _DECONVOLVE_HPP_
 
 #include <functional>
+#ifdef NDEBUG
+#define BOOST_DISABLE_ASSERTS
+#endif
 #include <boost/multi_array.hpp>
 
 namespace deconvolution {

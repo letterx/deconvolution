@@ -4,6 +4,7 @@
 #include "deconvolve.hpp"
 #include <vector>
 #include <functional>
+#include <assert.h>
 
 namespace deconvolution {
 template <int D> 

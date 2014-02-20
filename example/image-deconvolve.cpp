@@ -77,6 +77,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    std::cout << "Convolving\n";
     auto blur = convolve(y, ker);
 
     for (int i = 0; i < width; ++i) {
@@ -97,8 +98,11 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, 128, [](int, int)->double {return 0;} };
+    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, 32, [](int, int)->double {return 0;} };
+
+    std::cout << "Deconvolving\n";
     auto deblur = deconvolution::Deconvolve<2>(y, H, H, R);
+    std::cout << "Done\n";
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
