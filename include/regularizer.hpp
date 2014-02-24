@@ -34,9 +34,10 @@ template <int D>
 class GridRegularizer : public Regularizer<D> {
     public:
         typedef std::function<double(int, int)> EdgeFn;
-        GridRegularizer(const std::vector<int>& extents, int numLabels, const EdgeFn& edgeFn) 
+        GridRegularizer(const std::vector<int>& extents, int numLabels, int labelScale, const EdgeFn& edgeFn) 
             : _extents(extents)
             , _numLabels(numLabels)
+            , _labelScale(labelScale)
             , _edgeFn(edgeFn)
         { 
             assert(_extents.size() == D);
@@ -44,11 +45,12 @@ class GridRegularizer : public Regularizer<D> {
 
         virtual int numSubproblems() const override { return D; }
         virtual int numLabels() const override { return _numLabels; }
-        virtual double getLabel(int var, int l) const override { return l; }
+        virtual double getLabel(int var, int l) const override { return l*_labelScale; }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient) const override;
     private:
         std::vector<int> _extents;
         int _numLabels;
+        int _labelScale;
         EdgeFn _edgeFn;
 };
 }

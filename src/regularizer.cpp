@@ -50,7 +50,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         { // Base step
             pointIndex = 0;
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                m_L[pointLabel] = -L(point)/smoothing;
+                m_L[pointLabel] = L(point)/smoothing;
         }
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
@@ -70,7 +70,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
 
         // Compute log m_R
         for (int lCurr = 0; lCurr < _numLabels; ++lCurr)
-            m_R[(width-1)*_numLabels+lCurr] = 1.0;
+            m_R[(width-1)*_numLabels+lCurr] = 0.0;
         for (int j = width-2; j >= 0; --j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 pointIndex = j+1;
@@ -102,7 +102,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             logSumExp = maxMarg + log(sumExp);
             pointIndex = j;
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                G(point) = exp(logMarg[pointLabel] - logSumExp);
+                G(point) = -exp(logMarg[pointLabel] - logSumExp);
         }
         objective += -smoothing*logSumExp;
     }
