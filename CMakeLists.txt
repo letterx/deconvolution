@@ -31,6 +31,7 @@ set(deconvolve-sources
     src/deconvolve.cpp
     src/quadratic-min.cpp
     src/regularizer.cpp
+    src/optimal-grad.cpp
     )
 
 ###

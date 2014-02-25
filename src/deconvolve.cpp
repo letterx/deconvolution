@@ -2,6 +2,7 @@
 #include "quadratic-min.hpp"
 #include "util.hpp"
 #include "regularizer.hpp"
+#include "optimal-grad.hpp"
 #include <lbfgs.h>
 #include <limits>
 #include <iostream>
@@ -175,6 +176,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
     std::cout << "Begin lbfgs\n";
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
+    //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 
     return x;
