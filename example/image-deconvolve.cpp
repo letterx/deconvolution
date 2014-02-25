@@ -98,8 +98,8 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    int nLabels = 32;
-    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, nLabels, 256/nLabels, [](int, int)->double {return 0;} };
+    int nLabels = 2;
+    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, nLabels, 256/(nLabels-1), [](int, int)->double {return 0;} };
 
     std::cout << "Deconvolving\n";
     auto deblur = deconvolution::Deconvolve<2>(y, H, H, R);

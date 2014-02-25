@@ -64,7 +64,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     sumExp += exp(labelCosts[lPrev] - maxMessage);
                 pointIndex = j;
                 pointLabel = lCurr;
-                m_L[j*_numLabels+lCurr] = -L(point)/smoothing + maxMessage + log(sumExp);
+                m_L[j*_numLabels+lCurr] = L(point)/smoothing + maxMessage + log(sumExp);
             }
         }
 

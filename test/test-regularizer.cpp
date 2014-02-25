@@ -27,9 +27,9 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
         for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
             auto result = R.evaluate(0, lambda.data(), t, gradient.data());
 
-            BOOST_CHECK_CLOSE(result, 1.0-t*log(2), epsilon);
-            BOOST_CHECK_CLOSE(gradient[0], 0.5, epsilon);
-            BOOST_CHECK_CLOSE(gradient[1], 0.5, epsilon);
+            BOOST_CHECK_CLOSE(result, -1.0-t*log(2), epsilon);
+            BOOST_CHECK_CLOSE(gradient[0], -0.5, epsilon);
+            BOOST_CHECK_CLOSE(gradient[1], -0.5, epsilon);
         }
 
         lambda[1] = 0.0;
@@ -37,10 +37,10 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
         for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
             auto result = R.evaluate(0, lambda.data(), t, gradient.data());
 
-            BOOST_CHECK_CLOSE(result, -t*log(1+exp(-1.0/t)), epsilon);
-            BOOST_CHECK_GE(result, 0-t*log(2));
-            BOOST_CHECK_CLOSE(gradient[0], exp(-1.0/t)/(1+exp(-1.0/t)), epsilon);
-            BOOST_CHECK_CLOSE(gradient[1], 1.0/(1+exp(-1.0/t)), epsilon);
+            BOOST_CHECK_CLOSE(result, -1.0-t*log(1+exp(-1.0/t)), epsilon);
+            BOOST_CHECK_GE(result, -1.0-t*log(2));
+            BOOST_CHECK_CLOSE(gradient[0], -1.0/(1+exp(-1.0/t)), epsilon);
+            BOOST_CHECK_CLOSE(gradient[1], -exp(-1.0/t)/(1+exp(-1.0/t)), epsilon);
         }
 
     }
@@ -54,13 +54,15 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
             std::vector<double> lambda(n*2, 1.0);
             std::vector<double> gradient(n*2, 0);
 
-            for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+            //for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+            double t = 1.0;
+            {
                 auto result = R.evaluate(0, lambda.data(), t, gradient.data());
 
-                BOOST_CHECK_CLOSE(result, n - t*n*log(2), epsilon);
-                BOOST_CHECK_GE(result, n - t*n*log(2)-epsilon);
+                BOOST_CHECK_CLOSE(result, -n - t*n*log(2), epsilon);
+                BOOST_CHECK_GE(result, -n - t*n*log(2)-epsilon);
                 for (int i = 0; i < 2*n; ++i)
-                    BOOST_CHECK_CLOSE(gradient[i], 0.5, epsilon);
+                    BOOST_CHECK_CLOSE(gradient[i], -0.5, epsilon);
             }
         }
     }
