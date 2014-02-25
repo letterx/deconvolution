@@ -130,6 +130,9 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
+    params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+    params.delta = 0.001;
+    params.past = 10;
     //params.max_iterations = 5;
     auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
     std::cout << "Begin lbfgs\n";
