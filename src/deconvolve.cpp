@@ -148,15 +148,22 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     auto dualVars = std::unique_ptr<double>(new double[numDualVars]);
     double* lambda = dualVars.get();
     double* nu = dualVars.get() + numLambda;
-    for (int i = 0; i < numLambda; ++i)
-        lambda[i] = 0;
-    for (int i = 0; i < numPrimalVars; ++i)
-        nu[i] = 0;
     for (size_t i = 0; i < x.num_elements(); ++i) {
         x.data()[i] = 0;
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMin<D>(Q, b, x);
+
+    for (int i = 0; i < numPrimalVars; ++i)
+        //nu[i] = -0.00001*x.data()[i];
+        nu[i] = 0;
+    for (int sp = 0; sp < R.numSubproblems(); ++sp) {
+        for (int i = 0; i < numPrimalVars; ++i) {
+            for (int l = 0; l < R.numLabels(); ++l) {
+                lambda[sp*numPrimalVars*R.numLabels() + i*R.numLabels() + l] = -nu[i]*R.getLabel(i, l)/R.numSubproblems();
+            }
+        }
+    }
 
     lbfgs_parameter_t params;
     double fVal = 0;
