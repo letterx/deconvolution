@@ -98,13 +98,15 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    int nLabels = 32;
-    double labelScale = 255.0/(nLabels-1);
+    constexpr int nLabels = 32;
+    constexpr double labelScale = 255.0/(nLabels-1);
+    constexpr double smoothMax = 100.0;
+    constexpr double regularizerWeight = 100.0;
     auto R = deconvolution::GridRegularizer<2>{
         std::vector<int>{width, height}, 
         nLabels, labelScale, 
-        [](int l1, int l2)->double {
-            return 0;
+        [=](int l1, int l2)->double {
+            return regularizerWeight*std::min(smoothMax, fabs(labelScale*(l1 - l2)));
         } 
     };
 

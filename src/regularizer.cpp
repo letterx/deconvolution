@@ -77,7 +77,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double maxMessage = std::numeric_limits<double>::lowest();
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     pointLabel = lPrev;
-                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) + L(point))/smoothing + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - L(point))/smoothing + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;

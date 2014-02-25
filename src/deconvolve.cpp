@@ -86,6 +86,7 @@ static double deconvolveEvaluate(
     return objective;
 }
 
+template <int D>
 static int deconvolveProgress(
         void *instance,
         const double *x,
@@ -97,19 +98,49 @@ static int deconvolveProgress(
         int n,
         int k,
         int ls) {
-    printf("Deconvolve Iteration %d:\n", k);
-    printf("  fx = %f", fx);
-    printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
-    printf("\n");
+    auto* data = static_cast<DeconvolveData<D>*>(instance);
+    //auto& x = data->x;
+    const auto numPrimalVars = int(data->x.num_elements());
+    const auto numLambda = data->numLambda;
+    const double* nu = x + numLambda;
+    const double* nuGrad = g + numLambda;
+    double lambdaNorm = 0;
+    double lambdaL1 = 0;
+    double lambdaGradNorm = 0;
+    for (int i = 0; i < numLambda; ++i) {
+        lambdaNorm += x[i]*x[i];
+        lambdaL1 += fabs(x[i]);
+        lambdaGradNorm += g[i]*g[i];
+    }
+    lambdaNorm = sqrt(lambdaNorm);
+    lambdaGradNorm = sqrt(lambdaGradNorm);
+
+    double nuNorm = 0;
+    double nuL1 = 0;
+    double nuGradNorm = 0;
+    for (int i = 0; i < numPrimalVars; ++i) {
+        nuNorm += nu[i];
+        nuL1 += fabs(nu[i]);
+        nuGradNorm += nuGrad[i]*nuGrad[i];
+    }
+    nuNorm = sqrt(nuNorm);
+    nuGradNorm = sqrt(nuGradNorm);
+
+    std::cout << "Deconvolve Iteration " << k << "\n";
+    std::cout << "\tf(x): " << fx << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
+    std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
+    std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
+    std::cout << "\n";
     return 0;
 }
 
 template <int D>
 Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R) {
-    Array<D> b = 2*Ht(y);
+    constexpr double datascale = 1;
+    Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
-    double constantTerm = dot(y, y);
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + 0.03*x; };
+    double constantTerm = datascale*dot(y, y);
 
     int numPrimalVars = x.num_elements();
     int numLambda = numPrimalVars*R.numSubproblems()*R.numLabels();
@@ -130,13 +161,13 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     lbfgs_parameter_t params;
     double fVal = 0;
     lbfgs_parameter_init(&params);
-    params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    params.delta = 0.001;
-    params.past = 10;
+    //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+    //params.delta = 0.00000;
+    //params.past = 0;
     //params.max_iterations = 5;
     auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
     std::cout << "Begin lbfgs\n";
-    auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress, &algData, &params);
+    auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
     std::cout << "Deconvolve finished: " << retCode << "\n";
 
     return x;
