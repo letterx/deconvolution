@@ -99,7 +99,14 @@ int main(int argc, char **argv) {
         };
 
     int nLabels = 32;
-    auto R = deconvolution::GridRegularizer<2>{std::vector<int>{width, height}, nLabels, 256/(nLabels-1), [](int, int)->double {return 0;} };
+    double labelScale = 255.0/(nLabels-1);
+    auto R = deconvolution::GridRegularizer<2>{
+        std::vector<int>{width, height}, 
+        nLabels, labelScale, 
+        [](int l1, int l2)->double {
+            return 0;
+        } 
+    };
 
     std::cout << "Deconvolving\n";
     auto deblur = deconvolution::Deconvolve<2>(y, H, H, R);

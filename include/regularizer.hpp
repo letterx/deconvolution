@@ -34,7 +34,7 @@ template <int D>
 class GridRegularizer : public Regularizer<D> {
     public:
         typedef std::function<double(int, int)> EdgeFn;
-        GridRegularizer(const std::vector<int>& extents, int numLabels, int labelScale, const EdgeFn& edgeFn) 
+        GridRegularizer(const std::vector<int>& extents, int numLabels, double labelScale, const EdgeFn& edgeFn) 
             : _extents(extents)
             , _numLabels(numLabels)
             , _labelScale(labelScale)
@@ -50,7 +50,7 @@ class GridRegularizer : public Regularizer<D> {
     private:
         std::vector<int> _extents;
         int _numLabels;
-        int _labelScale;
+        double _labelScale;
         EdgeFn _edgeFn;
 };
 }
