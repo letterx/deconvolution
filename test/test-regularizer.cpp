@@ -80,8 +80,8 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
     }
 
     BOOST_AUTO_TEST_CASE(Timing) {
-        int width = 100;
-        int height = 100;
+        int width = 200;
+        int height = 200;
         int nLabels = 32;
         auto R = GridRegularizer<2>{std::vector<int>{width, height}, nLabels, 1, 0, 0};
 
