@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
-    cv::waitKey(0);
+    cv::waitKey(1);
 
     auto reblur = convolve(deblur, ker);
 
@@ -159,10 +159,6 @@ int main(int argc, char **argv) {
             image.at<unsigned char>(j,i) = reblur[i][j];
         }
     }
-
-    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-    cv::imshow("Display Window", image);
-    cv::waitKey(0);
 
     cv::imwrite(outfilename.c_str(), image); 
 

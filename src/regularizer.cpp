@@ -37,6 +37,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     std::vector<double> m_R(_numLabels*width, 0);
     std::vector<double> logMarg(_numLabels, 0);
     std::vector<double> labelCosts(_numLabels, 0);
+    const double smoothingMult = 1.0/smoothing;
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         /*
         std::cout << "\tbase: ";
@@ -55,7 +56,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         // Compute log m_L
         // Base step
         for (int l = 0; l < _numLabels; ++l)
-            m_L[l] = lambdaScale*lambdaSlice[l]/smoothing;
+            m_L[l] = lambdaScale*smoothingMult*lambdaSlice[l];
         // Inductive step
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
@@ -63,13 +64,13 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double domainLCurr = getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     double domainLPrev = getLabel(j-1, lPrev);
-                    labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)/smoothing + m_L[(j-1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
                     sumExp += exp(labelCosts[lPrev] - maxMessage);
-                m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]/smoothing + maxMessage + log(sumExp);
+                m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
             }
         }
 
@@ -82,7 +83,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double domainLCurr = getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     double domainLPrev = getLabel(j+1, lPrev);
-                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])/smoothing + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
