@@ -39,19 +39,19 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     std::vector<double> labelCosts(_numLabels, 0);
     const double smoothingMult = 1.0/smoothing;
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
+        int baseIdx = 0;
+        for (int i = 0; i < D; ++i) baseIdx += base[i]*L.strides()[i];
+        int stride = L.strides()[subproblem];
+        assert(L.strides()[D] == 1);
         /*
         std::cout << "\tbase: ";
         for (auto idx : base) std::cout << idx << " ";
         std::cout << "\n";
         */
-        std::vector<int> point = base;
-        point.push_back(0);
-        int& pointIndex = point[subproblem];
-        int& pointLabel = point[point.size()-1];
 
-        for (pointIndex = 0; pointIndex < width; ++pointIndex)
-            for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                lambdaSlice[pointIndex*_numLabels + pointLabel] = L(point);
+        for (int j = 0; j < width; ++j)
+            for (int l = 0; l < _numLabels; ++l)
+                lambdaSlice[j*_numLabels + l] = L.data()[baseIdx + j*stride + l];
 
         // Compute log m_L
         // Base step
@@ -61,7 +61,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
-                double domainLCurr = _getLabel(j, lCurr);
+                double domainLCurr = _getLabel(baseIdx+j*stride, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     double domainLPrev = _getLabel(j-1, lPrev);
                     labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
@@ -105,9 +105,8 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             for (int l = 0; l < _numLabels; ++l)
                 sumExp += exp(logMarg[l] - maxMarg);
             logSumExp = maxMarg + log(sumExp);
-            pointIndex = j;
-            for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                G(point) = -lambdaScale*exp(logMarg[pointLabel] - logSumExp);
+            for (int l = 0; l < _numLabels; ++l)
+                G.data()[baseIdx + j*stride + l] = -lambdaScale*exp(logMarg[l] - logSumExp);
         }
         objective += -smoothing*logSumExp;
     }
