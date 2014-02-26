@@ -17,6 +17,8 @@ struct DeconvolveData {
     const Regularizer<D>& R;
     int numLambda;
     double constantTerm;
+    double smoothing;
+    ProgressCallback<D>& pc;
 };
 
 template <int D>
@@ -38,7 +40,7 @@ static double deconvolveEvaluate(
     const auto numPerSubproblem = numPrimalVars*numLabels;
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = 1;
+    const double t = data->smoothing;
     auto bPlusNu = b;
     for (int i = 0; i < numPrimalVars; ++i)
         bPlusNu.data()[i] += nu[i];
@@ -132,11 +134,12 @@ static int deconvolveProgress(
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
     std::cout << "\n";
+    if (k%10 == 0) data->pc(data->x);
     return 0;
 }
 
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R) {
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc) {
     constexpr double datascale = 1;
     Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
@@ -170,10 +173,11 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     double fVal = 0;
     lbfgs_parameter_init(&params);
     //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    //params.delta = 0.00000;
-    //params.past = 0;
-    //params.max_iterations = 5;
-    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm};
+    //params.delta = 0.00001;
+    //params.past = 100;
+    params.max_iterations = 5000;
+    double smoothing = 1;
+    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, pc};
     std::cout << "Begin lbfgs\n";
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
     //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
@@ -183,7 +187,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, const Regularizer<d>& R);
+    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, const Regularizer<d>& R, ProgressCallback<d>& pc);
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

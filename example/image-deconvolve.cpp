@@ -98,20 +98,40 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    constexpr int nLabels = 32;
+    constexpr int nLabels = 4;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 100.0;
     constexpr double regularizerWeight = 100.0;
-    auto R = deconvolution::GridRegularizer<2>{
-        std::vector<int>{width, height}, 
-        nLabels, labelScale, 
+    auto constFn = [=](int, int) -> double { return 0; };
+    auto L1Fn = 
         [=](int l1, int l2)->double {
             return regularizerWeight*std::min(smoothMax, fabs(labelScale*(l1 - l2)));
-        } 
+            //return 0;
+        };
+    bool doL1 = true;
+    std::function<double(int,int)> regFn;
+    if (doL1) regFn = L1Fn;
+    else regFn = constFn;
+    auto R = deconvolution::GridRegularizer<2>{
+        std::vector<int>{width, height}, 
+        nLabels, labelScale, regFn
     };
 
+    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
+    deconvolution::ProgressCallback<2> progressCallback = [&](const deconvolution::Array<2>& x) {
+        for (int i = 0; i < width; ++i) {
+            for (int j = 0; j < height; ++j) {
+                image.at<unsigned char>(j,i) = x[i][j];
+            }
+        }
+
+        cv::imshow("Display Window", image);
+        cv::waitKey(1);
+    };
+
+
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R);
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback);
     std::cout << "Done\n";
 
     for (int i = 0; i < width; ++i) {

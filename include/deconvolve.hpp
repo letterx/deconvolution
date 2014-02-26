@@ -16,6 +16,8 @@ using LinearSystem = std::function<Array<D>(const Array<D>&)>;
 
 template <int D> class Regularizer;
 
+template <int D>
+using ProgressCallback = std::function<void(const Array<D>&)>;
 /* 
  * Solve a linear inverse system of the form
  * min_x |y - Hx|_2^2 + R(x)
@@ -23,7 +25,7 @@ template <int D> class Regularizer;
  * observables. 
  */
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R);
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc);
 
 }
 
