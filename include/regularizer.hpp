@@ -36,17 +36,19 @@ template <int D>
 class GridRegularizer : public Regularizer<D> {
     public:
         typedef std::function<double(double, double)> EdgeFn;
-        GridRegularizer(const std::vector<int>& extents, int numLabels, double labelScale, const EdgeFn& edgeFn) 
+        GridRegularizer(const std::vector<int>& extents, int numLabels, double labelScale, double smoothMax, double smoothWeight)
             : _extents(extents)
             , _numLabels(numLabels)
             , _labelScale(labelScale)
-            , _edgeFn(edgeFn)
+            , _smoothMax(smoothMax)
+            , _smoothWeight(smoothWeight)
         { 
             assert(_extents.size() == D);
         }
     private:
         // Internal non-virtual functions to improve inlining
         double _getLabel(int var, int l) const { return l*_labelScale; }
+        double _edgeFn(double l1, double l2) const { return _smoothWeight*std::min(_smoothMax, fabs(l1 - l2)); }
 
     public:
         virtual int numSubproblems() const override { return D; }
@@ -58,7 +60,8 @@ class GridRegularizer : public Regularizer<D> {
         std::vector<int> _extents;
         int _numLabels;
         double _labelScale;
-        EdgeFn _edgeFn;
+        double _smoothMax;
+        double _smoothWeight;
 };
 }
 
