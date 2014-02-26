@@ -60,8 +60,10 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
+                double domainLCurr = getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    labelCosts[lPrev] = -_edgeFn(lPrev, lCurr)/smoothing + m_L[(j-1)*_numLabels+lPrev];
+                    double domainLPrev = getLabel(j-1, lPrev);
+                    labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)/smoothing + m_L[(j-1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
@@ -77,8 +79,10 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int j = width-2; j >= 0; --j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
+                double domainLCurr = getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])/smoothing + m_R[(j+1)*_numLabels+lPrev];
+                    double domainLPrev = getLabel(j+1, lPrev);
+                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])/smoothing + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
@@ -108,6 +112,31 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     }
     return objective;
 }
+
+template <int D>
+double GridRegularizer<D>::primal(const double* x) const {
+    double objective = 0;
+    const auto X = boost::const_multi_array_ref<double, D>{x, _extents};
+
+    for (int subproblem = 0; subproblem < D; ++subproblem) {
+        int width = _extents[subproblem]; // Length along this dimension of the grid
+        std::vector<int> base(D, 0);
+        int numBases = 1;
+        for (int i = 0; i < D; ++i)
+            numBases *= (i == subproblem) ? 1 : _extents[i];
+
+        for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
+            int baseIdx = 0;
+            for (int i = 0; i < D; ++i) baseIdx += base[i]*X.strides()[i];
+            int stride = X.strides()[subproblem];
+            for (int i = 0; i < width-1; ++i) {
+                objective += _edgeFn(x[baseIdx+i*stride], x[baseIdx+(i+1)*stride]);
+            }
+        }
+    }
+    return objective;
+}
+
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \
     template class GridRegularizer<d>;

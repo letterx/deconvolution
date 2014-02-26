@@ -22,6 +22,7 @@ struct DeconvolveData {
     double lambdaScale;
     ProgressCallback<D>& pc;
     DeconvolveStats& stats;
+    std::function<double(const Array<D>&)> primalFn;
 };
 
 template <int D>
@@ -149,8 +150,10 @@ static int deconvolveProgress(
     nuNorm = sqrt(nuNorm);
     nuGradNorm = sqrt(nuGradNorm);
 
+    double primal = data->primalFn(data->x);
+
     std::cout << "Deconvolve Iteration " << k << "\n";
-    std::cout << "\tf(x): " << fx << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
+    std::cout << "\tf(x): " << -fx << "\tprimal: " << primal << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
     std::cout << "\n";
@@ -165,6 +168,12 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     Array<D> x = b;
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + 0.03*x; };
     double constantTerm = datascale*dot(y, y);
+    std::function<double(const Array<D>& x)> primalFn = 
+        [&](const Array<D>& x) -> double {
+            auto res = H(x) - y;
+            return dot(res, res) + R.primal(x.data());
+        };
+
 
     int numPrimalVars = x.num_elements();
     int numLambda = numPrimalVars*R.numSubproblems()*R.numLabels();
@@ -195,14 +204,19 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //params.delta = 0.00001;
     //params.past = 100;
-    params.max_iterations = 10;
-    double smoothing = 10;
+    params.max_iterations = 500;
+    params.epsilon = 0.2;
+    double smoothing = 1000;
     double lambdaScale = 100;
-    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats};
     std::cout << "Begin lbfgs\n";
-    auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
+    for (; smoothing > 1.0; smoothing /= 2) {
+        std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
+        auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
+        auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
+        std::cout << "\tL-BFGS finished: " << retCode << "\n";
+    }
+    
     //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
-    std::cout << "Deconvolve finished: " << retCode << "\n";
 
     return x;
 }

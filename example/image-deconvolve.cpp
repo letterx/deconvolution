@@ -101,15 +101,15 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 100.0;
-    auto constFn = [=](int, int) -> double { return 0; };
+    constexpr double regularizerWeight = 10.0;
+    auto constFn = [=](double, double) -> double { return 0; };
     auto L1Fn = 
-        [=](int l1, int l2)->double {
-            return regularizerWeight*std::min(smoothMax, fabs(labelScale*(l1 - l2)));
+        [=](double l1, double l2)->double {
+            return regularizerWeight*std::min(smoothMax, fabs(l1 - l2));
             //return 0;
         };
     bool doL1 = true;
-    std::function<double(int,int)> regFn;
+    std::function<double(double,double)> regFn;
     if (doL1) regFn = L1Fn;
     else regFn = constFn;
     auto R = deconvolution::GridRegularizer<2>{

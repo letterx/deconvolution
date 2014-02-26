@@ -28,4 +28,13 @@ deconvolution::Array<D> operator+(const deconvolution::Array<D>& a1, const decon
     return r;
 }
 
+template <unsigned long D>
+deconvolution::Array<D> operator-(const deconvolution::Array<D>& a1, const deconvolution::Array<D>& a2) {
+    deconvolution::Array<D> r = a1;
+    for (size_t i = 0; i < r.num_elements(); ++i)
+        r.data()[i] -= a2.data()[i];
+    return r;
+}
+
+
 #endif

@@ -8,7 +8,7 @@ constexpr double epsilon = 0.0001;
 BOOST_AUTO_TEST_SUITE(RegularizerTests)
 
     BOOST_AUTO_TEST_CASE(BasicInterface) {
-        auto R = GridRegularizer<1>{std::vector<int>{10}, 2, 1, [](int, int) -> double { return 0; }};
+        auto R = GridRegularizer<1>{std::vector<int>{10}, 2, 1, [](double, double) -> double { return 0; }};
 
         BOOST_CHECK_EQUAL(R.numSubproblems(), 1);
         BOOST_CHECK_EQUAL(R.numLabels(), 2);
@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
     }
 
     BOOST_AUTO_TEST_CASE(SingleVariable) {
-        auto R = GridRegularizer<1>{std::vector<int>{1}, 2, 1, [](int, int) -> double { return 0; }};
+        auto R = GridRegularizer<1>{std::vector<int>{1}, 2, 1, [](double, double) -> double { return 0; }};
 
         std::vector<double> lambda = { 1.0, 1.0 };
         std::vector<double> gradient = {0.0, 0.0};
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
     BOOST_AUTO_TEST_CASE(MultipleVars) {
         for (int n : {10, 100, 1000}) {
             auto R = GridRegularizer<1>(std::vector<int>{n}, 2, 1, 
-                    [](int l1, int l2) -> double {
+                    [](double l1, double l2) -> double {
                         return 0;
                     });
             std::vector<double> lambda(n*2, 1.0);
@@ -65,6 +65,23 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
                     BOOST_CHECK_CLOSE(gradient[i], -0.5, epsilon);
             }
         }
+    }
+
+    BOOST_AUTO_TEST_CASE(Primal) {
+        auto R = GridRegularizer<2>{std::vector<int>{3, 4}, 2, 1,
+                [](double l1, double l2) -> double {
+                    return std::min(3.0, fabs(l1 - l2));
+                }
+        };
+
+        double x[] = {
+            4.0, 1.0, 1.0, 7.0,
+            3.0, 7.0, 7.0, 5.0,
+            0.0,-2.0, 2.0, 4.0
+        };
+
+        auto primal = R.primal(x);
+        BOOST_CHECK_CLOSE(primal, 18 + 19, epsilon);
     }
 
 BOOST_AUTO_TEST_SUITE_END()
