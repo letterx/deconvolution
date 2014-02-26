@@ -35,6 +35,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     std::vector<double> lambdaSlice(_numLabels*width, 0);
     std::vector<double> m_L(_numLabels*width, 0);
     std::vector<double> m_R(_numLabels*width, 0);
+    std::vector<double> logMarg(_numLabels, 0);
     std::vector<double> labelCosts(_numLabels, 0);
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         /*
@@ -89,7 +90,6 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
 
         // Compute marginals, put them in G
         double logSumExp = 0;
-        std::vector<double> logMarg(_numLabels, 0);
         for (int j = 0; j < width; ++j) {
             double maxMarg = std::numeric_limits<double>::lowest();
             for (int l = 0; l < _numLabels; ++l) {
