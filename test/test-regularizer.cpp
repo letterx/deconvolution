@@ -1,4 +1,6 @@
 #include <boost/test/unit_test.hpp>
+#include <chrono>
+#include <iostream>
 #include "regularizer.hpp"
 
 using namespace deconvolution;
@@ -82,6 +84,27 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
 
         auto primal = R.primal(x);
         BOOST_CHECK_CLOSE(primal, 18 + 19, epsilon);
+    }
+
+    BOOST_AUTO_TEST_CASE(Timing) {
+        int width = 100;
+        int height = 100;
+        int nLabels = 32;
+        auto R = GridRegularizer<2>{std::vector<int>{width, height}, nLabels, 1,
+            [](double l1, double l2) -> double {
+                return 0;
+            }
+        };
+
+        std::vector<double> lambda(width*height*nLabels, 0.0);
+        std::vector<double> gradient(width*height*nLabels, 0.0);
+
+        auto startTime = std::chrono::system_clock::now();
+        for (int subproblem : {0, 1}) {
+            R.evaluate(subproblem, lambda.data(), 1.0, 1.0, gradient.data());
+        }
+        double time = std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count();
+        std::cout << "Time: " << time << "\n";
     }
 
 BOOST_AUTO_TEST_SUITE_END()

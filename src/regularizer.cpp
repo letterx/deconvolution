@@ -61,9 +61,9 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
-                double domainLCurr = getLabel(j, lCurr);
+                double domainLCurr = _getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double domainLPrev = getLabel(j-1, lPrev);
+                    double domainLPrev = _getLabel(j-1, lPrev);
                     labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
@@ -80,9 +80,9 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int j = width-2; j >= 0; --j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
-                double domainLCurr = getLabel(j, lCurr);
+                double domainLCurr = _getLabel(j, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double domainLPrev = getLabel(j+1, lPrev);
+                    double domainLPrev = _getLabel(j+1, lPrev);
                     labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }

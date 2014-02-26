@@ -44,10 +44,14 @@ class GridRegularizer : public Regularizer<D> {
         { 
             assert(_extents.size() == D);
         }
+    private:
+        // Internal non-virtual functions to improve inlining
+        double _getLabel(int var, int l) const { return l*_labelScale; }
 
+    public:
         virtual int numSubproblems() const override { return D; }
         virtual int numLabels() const override { return _numLabels; }
-        virtual double getLabel(int var, int l) const override { return l*_labelScale; }
+        virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const override;
         virtual double primal(const double* x) const override;
     private:
