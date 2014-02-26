@@ -6,6 +6,7 @@
 #include <lbfgs.h>
 #include <limits>
 #include <iostream>
+#include <chrono>
 
 namespace deconvolution{
 
@@ -20,6 +21,7 @@ struct DeconvolveData {
     double smoothing;
     double lambdaScale;
     ProgressCallback<D>& pc;
+    DeconvolveStats& stats;
 };
 
 template <int D>
@@ -43,6 +45,12 @@ static double deconvolveEvaluate(
     const double* nu = dualVars + numLambda;
     const double t = data->smoothing;
     const double lambdaScale = data->lambdaScale;
+    DeconvolveStats& stats = data->stats;
+
+    typedef std::chrono::duration<double> Duration;
+    typedef std::chrono::system_clock Clock;
+
+    auto iterStartTime = Clock::now();
 
     auto bPlusNu = b;
     for (int i = 0; i < numPrimalVars; ++i)
@@ -51,14 +59,19 @@ static double deconvolveEvaluate(
     for (int i = 0; i < n; ++i)
         grad[i] = 0;
 
+    auto startTime = Clock::now();
     double regularizerObjective = 0;
     for (int i = 0; i < R.numSubproblems(); ++i)
         regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, lambdaScale, grad+i*numPerSubproblem);
+    stats.regularizerTime += Duration{Clock::now() - startTime}.count();
 
+    startTime = Clock::now();
     double dataObjective = quadraticMin<D>(Q, bPlusNu, x) + constantTerm;
     for (int i = 0; i < numPrimalVars; ++i)
         grad[i+numLambda] = -x.data()[i];
+    stats.dataTime += Duration{Clock::now() - startTime}.count();
 
+    startTime = Clock::now();
     double unaryObjective = 0;
     auto minTable = std::vector<double>(numLabels, 0);
     for (int i = 0; i < numPrimalVars; ++i) {
@@ -84,10 +97,14 @@ static double deconvolveEvaluate(
             for (int xi = 0; xi < numLabels; ++xi) 
                 grad[alpha*numPerSubproblem+i*numLabels+xi] += lambdaScale*minTable[xi]/expSum;
     }
+    stats.unaryTime += Duration{Clock::now() - startTime}.count();
+
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
     double objective = -(regularizerObjective + dataObjective + unaryObjective);
     std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
+
+    stats.iterTime += Duration{Clock::now() - iterStartTime}.count();
 
     return objective;
 }
@@ -142,7 +159,7 @@ static int deconvolveProgress(
 }
 
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc) {
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& stats) {
     constexpr double datascale = 1;
     Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
@@ -178,10 +195,10 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //params.delta = 0.00001;
     //params.past = 100;
-    params.max_iterations = 500;
-    double smoothing = 1;
+    params.max_iterations = 10;
+    double smoothing = 10;
     double lambdaScale = 100;
-    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc};
+    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats};
     std::cout << "Begin lbfgs\n";
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
     //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
@@ -191,7 +208,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, const Regularizer<d>& R, ProgressCallback<d>& pc);
+    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, const Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveStats& s);
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

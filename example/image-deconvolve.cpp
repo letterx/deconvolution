@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 10.0;
+    constexpr double regularizerWeight = 100.0;
     auto constFn = [=](int, int) -> double { return 0; };
     auto L1Fn = 
         [=](int l1, int l2)->double {
@@ -129,10 +129,18 @@ int main(int argc, char **argv) {
         cv::waitKey(1);
     };
 
+    deconvolution::DeconvolveStats s = {};
 
+    auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback);
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, s);
     std::cout << "Done\n";
+
+    std::cout << "Total time:       " << std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count() << "\n";
+    std::cout << "Evaluation time:  " << s.iterTime << "\n";
+    std::cout << "Regularizer time: " << s.regularizerTime << "\n";
+    std::cout << "Data time:        " << s.dataTime << "\n";
+    std::cout << "Unary time:       " << s.unaryTime << "\n";
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {

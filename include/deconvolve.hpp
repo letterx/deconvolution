@@ -16,6 +16,13 @@ using LinearSystem = std::function<Array<D>(const Array<D>&)>;
 
 template <int D> class Regularizer;
 
+struct DeconvolveStats {
+    double iterTime = 0;
+    double regularizerTime = 0;
+    double unaryTime = 0;
+    double dataTime = 0;
+};
+
 template <int D>
 using ProgressCallback = std::function<void(const Array<D>&)>;
 /* 
@@ -25,7 +32,7 @@ using ProgressCallback = std::function<void(const Array<D>&)>;
  * observables. 
  */
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc);
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& s);
 
 }
 
