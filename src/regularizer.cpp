@@ -16,7 +16,7 @@ void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<
 }
 
 template <int D>
-double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient) const {
+double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const {
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;
 
@@ -50,7 +50,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         { // Base step
             pointIndex = 0;
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                m_L[pointLabel] = L(point)/smoothing;
+                m_L[pointLabel] = lambdaScale*L(point)/smoothing;
         }
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
@@ -64,7 +64,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     sumExp += exp(labelCosts[lPrev] - maxMessage);
                 pointIndex = j;
                 pointLabel = lCurr;
-                m_L[j*_numLabels+lCurr] = L(point)/smoothing + maxMessage + log(sumExp);
+                m_L[j*_numLabels+lCurr] = lambdaScale*L(point)/smoothing + maxMessage + log(sumExp);
             }
         }
 
@@ -77,7 +77,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double maxMessage = std::numeric_limits<double>::lowest();
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     pointLabel = lPrev;
-                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - L(point))/smoothing + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - lambdaScale*L(point))/smoothing + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
@@ -102,7 +102,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             logSumExp = maxMarg + log(sumExp);
             pointIndex = j;
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                G(point) = -exp(logMarg[pointLabel] - logSumExp);
+                G(point) = -lambdaScale*exp(logMarg[pointLabel] - logSumExp);
         }
         objective += -smoothing*logSumExp;
     }

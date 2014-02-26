@@ -98,10 +98,10 @@ int main(int argc, char **argv) {
             return convolve(x, ker);
         };
 
-    constexpr int nLabels = 4;
+    constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
-    constexpr double smoothMax = 100.0;
-    constexpr double regularizerWeight = 100.0;
+    constexpr double smoothMax = 32.0;
+    constexpr double regularizerWeight = 10.0;
     auto constFn = [=](int, int) -> double { return 0; };
     auto L1Fn = 
         [=](int l1, int l2)->double {

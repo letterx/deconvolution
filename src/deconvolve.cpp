@@ -18,6 +18,7 @@ struct DeconvolveData {
     int numLambda;
     double constantTerm;
     double smoothing;
+    double lambdaScale;
     ProgressCallback<D>& pc;
 };
 
@@ -41,6 +42,8 @@ static double deconvolveEvaluate(
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
     const double t = data->smoothing;
+    const double lambdaScale = data->lambdaScale;
+
     auto bPlusNu = b;
     for (int i = 0; i < numPrimalVars; ++i)
         bPlusNu.data()[i] += nu[i];
@@ -50,7 +53,7 @@ static double deconvolveEvaluate(
 
     double regularizerObjective = 0;
     for (int i = 0; i < R.numSubproblems(); ++i)
-        regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem);
+        regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, lambdaScale, grad+i*numPerSubproblem);
 
     double dataObjective = quadraticMin<D>(Q, bPlusNu, x) + constantTerm;
     for (int i = 0; i < numPrimalVars; ++i)
@@ -65,7 +68,7 @@ static double deconvolveEvaluate(
             double lambdaSum = 0;
             for (int alpha = 0; alpha < numSubproblems; ++alpha) 
                 lambdaSum += dualVars[alpha*numPerSubproblem+i*numLabels+xi];
-            minTable[xi] = lambdaSum + nu_i*R.getLabel(i, xi);
+            minTable[xi] = lambdaScale*lambdaSum + nu_i*R.getLabel(i, xi);
             minValue = std::min(minValue, minTable[xi]);
         }
         double expSum = 0;
@@ -79,7 +82,7 @@ static double deconvolveEvaluate(
         grad[i+numLambda] += nuGrad/expSum;
         for (int alpha = 0; alpha < numSubproblems; ++alpha)
             for (int xi = 0; xi < numLabels; ++xi) 
-                grad[alpha*numPerSubproblem+i*numLabels+xi] += minTable[xi]/expSum;
+                grad[alpha*numPerSubproblem+i*numLabels+xi] += lambdaScale*minTable[xi]/expSum;
     }
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
@@ -175,9 +178,10 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //params.delta = 0.00001;
     //params.past = 100;
-    params.max_iterations = 5000;
+    params.max_iterations = 500;
     double smoothing = 1;
-    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, pc};
+    double lambdaScale = 100;
+    auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc};
     std::cout << "Begin lbfgs\n";
     auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
     //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
