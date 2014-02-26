@@ -1,12 +1,5 @@
 #include "regularizer.hpp"
 #include <iostream>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wall"
-#pragma clang diagnostic ignored "-Wc99-extensions"
-#pragma clang diagnostic ignored "-Wc++11-narrowing"
-#pragma clang diagnostic ignored "-Wgnu"
-#include "fast-approx.h"
-#pragma clang diagnostic pop
 
 namespace deconvolution {
 
@@ -76,7 +69,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 }
                 double sumExp = 0;
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
-                    sumExp += fasterexp(labelCosts[lPrev] - maxMessage);
+                    sumExp += exp(labelCosts[lPrev] - maxMessage);
                 m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
             }
         }
@@ -95,7 +88,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 }
                 double sumExp = 0;
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
-                    sumExp += fasterexp(labelCosts[lPrev] - maxMessage);
+                    sumExp += exp(labelCosts[lPrev] - maxMessage);
                 m_R[j*_numLabels+lCurr] = maxMessage + log(sumExp);
             }
         }
@@ -110,11 +103,11 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             }
             double sumExp = 0;
             for (int l = 0; l < _numLabels; ++l)
-                sumExp += fasterexp(logMarg[l] - maxMarg);
+                sumExp += exp(logMarg[l] - maxMarg);
             logSumExp = maxMarg + log(sumExp);
             pointIndex = j;
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                G(point) = -lambdaScale*fasterexp(logMarg[pointLabel] - logSumExp);
+                G(point) = -lambdaScale*exp(logMarg[pointLabel] - logSumExp);
         }
         objective += -smoothing*logSumExp;
     }
