@@ -31,11 +31,12 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     int numBases = 1;
     for (int i = 0; i < D; ++i)
         numBases *= (i == subproblem) ? 1 : _extents[i];
-    
+
+    std::vector<double> lambdaSlice(_numLabels*width, 0);
     std::vector<double> m_L(_numLabels*width, 0);
     std::vector<double> m_R(_numLabels*width, 0);
     std::vector<double> labelCosts(_numLabels, 0);
-    for (int i = 0; i < numBases; ++i, incrementBase(_extents, subproblem, base)) {
+    for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         /*
         std::cout << "\tbase: ";
         for (auto idx : base) std::cout << idx << " ";
@@ -46,12 +47,15 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         int& pointIndex = point[subproblem];
         int& pointLabel = point[point.size()-1];
 
-        // Compute log m_L
-        { // Base step
-            pointIndex = 0;
+        for (pointIndex = 0; pointIndex < width; ++pointIndex)
             for (pointLabel = 0; pointLabel < _numLabels; ++pointLabel)
-                m_L[pointLabel] = lambdaScale*L(point)/smoothing;
-        }
+                lambdaSlice[pointIndex*_numLabels + pointLabel] = L(point);
+
+        // Compute log m_L
+        // Base step
+        for (int l = 0; l < _numLabels; ++l)
+            m_L[l] = lambdaScale*lambdaSlice[l]/smoothing;
+        // Inductive step
         for (int j = 1; j < width; ++j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
@@ -62,9 +66,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double sumExp = 0;
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
                     sumExp += exp(labelCosts[lPrev] - maxMessage);
-                pointIndex = j;
-                pointLabel = lCurr;
-                m_L[j*_numLabels+lCurr] = lambdaScale*L(point)/smoothing + maxMessage + log(sumExp);
+                m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]/smoothing + maxMessage + log(sumExp);
             }
         }
 
@@ -73,11 +75,9 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             m_R[(width-1)*_numLabels+lCurr] = 0.0;
         for (int j = width-2; j >= 0; --j) {
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-                pointIndex = j+1;
                 double maxMessage = std::numeric_limits<double>::lowest();
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    pointLabel = lPrev;
-                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - lambdaScale*L(point))/smoothing + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(lCurr, lPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])/smoothing + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
