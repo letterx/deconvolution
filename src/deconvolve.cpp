@@ -204,13 +204,13 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //params.delta = 0.00001;
     //params.past = 100;
-    params.max_iterations = 500;
+    params.max_iterations = 50;
     params.epsilon = 0.2;
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
     for (int samplingIter = 0; samplingIter < 4; ++samplingIter) {
         double smoothing = 1000;
-        for (; smoothing >= 1.0; smoothing /= 2) {
+        for (; smoothing >= 8.0; smoothing /= 2) {
             std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
             auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
