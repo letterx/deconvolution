@@ -21,6 +21,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 ###
 ### Sources, headers, directories and libs
 ###
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeFiles")
+
 include_directories(${DECONVOLVE_SOURCE_DIR}/include)
 include_directories(${DECONVOLVE_SOURCE_DIR}/src)
 

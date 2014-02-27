@@ -86,11 +86,22 @@ int main(int argc, char **argv) {
         }
     }
 
-    /*
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
     cv::waitKey(0);
-    */
+
+    std::cout << "Convolving FFTW\n";
+    blur = convolveFFT(y, ker);
+
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            image.at<unsigned char>(j,i) = blur[i][j];
+        }
+    }
+
+    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
+    cv::imshow("Display Window", image);
+    cv::waitKey(0);
 
 
     deconvolution::LinearSystem<2> H = 
