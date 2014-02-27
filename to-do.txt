@@ -1,4 +1,3 @@
 Change QuadraticMin code to use actual linear solver
 Adjustable labels clustered around least-squares fit
 Parallelize regularizer loop
-Use FFT to compute convolutions

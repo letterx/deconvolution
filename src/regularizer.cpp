@@ -41,8 +41,9 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         int baseIdx = 0;
         for (int i = 0; i < D; ++i) baseIdx += base[i]*L.strides()[i];
-        int stride = L.strides()[subproblem];
+        int stride = L.strides()[subproblem]/_numLabels;
         assert(L.strides()[D] == 1);
+        assert(stride*_numLabels == L.strides()[subproblem]);
         /*
         std::cout << "\tbase: ";
         for (auto idx : base) std::cout << idx << " ";
@@ -51,7 +52,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
 
         for (int j = 0; j < width; ++j)
             for (int l = 0; l < _numLabels; ++l)
-                lambdaSlice[j*_numLabels + l] = L.data()[baseIdx + j*stride + l];
+                lambdaSlice[j*_numLabels + l] = L.data()[baseIdx + j*stride*_numLabels + l];
 
         // Compute log m_L
         // Base step
@@ -59,7 +60,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             m_L[l] = lambdaScale*smoothingMult*lambdaSlice[l];
         // Inductive step
         for (int j = 1; j < width; ++j) {
-            int idx = baseIdx+j*stride;
+            int idx = baseIdx/_numLabels+j*stride;
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
                 double domainLCurr = _getLabel(idx, lCurr);
@@ -79,7 +80,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         for (int lCurr = 0; lCurr < _numLabels; ++lCurr)
             m_R[(width-1)*_numLabels+lCurr] = 0.0;
         for (int j = width-2; j >= 0; --j) {
-            int idx = baseIdx+j*stride;
+            int idx = baseIdx/_numLabels+j*stride;
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 double maxMessage = std::numeric_limits<double>::lowest();
                 double domainLCurr = _getLabel(idx, lCurr);
@@ -108,7 +109,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 sumExp += exp(logMarg[l] - maxMarg);
             logSumExp = maxMarg + log(sumExp);
             for (int l = 0; l < _numLabels; ++l)
-                G.data()[baseIdx + j*stride + l] = -lambdaScale*exp(logMarg[l] - logSumExp);
+                G.data()[baseIdx + j*stride*_numLabels + l] = -lambdaScale*exp(logMarg[l] - logSumExp);
         }
         objective += -smoothing*logSumExp;
     }
@@ -139,6 +140,15 @@ double GridRegularizer<D>::primal(const double* x) const {
     return objective;
 }
 
+template <int D>
+void GridRegularizer<D>::sampleLabels(const Array<D>& x) {
+    int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
+    for (int i = 0; i < n; ++i) {
+        for (int l = 0; l < _numLabels; ++l) {
+            _labels[i*_numLabels+l] = l*_labelScale;
+        }
+    }
+}
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \
     template class GridRegularizer<d>;

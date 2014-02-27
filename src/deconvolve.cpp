@@ -162,7 +162,7 @@ static int deconvolveProgress(
 }
 
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& stats) {
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& stats) {
     constexpr double datascale = 1;
     Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
@@ -186,6 +186,8 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMin<D>(Q, b, x);
+
+    R.sampleLabels(x);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];
@@ -225,7 +227,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, const Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveStats& s);
+    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveStats& s);
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

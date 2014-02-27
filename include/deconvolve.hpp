@@ -32,7 +32,7 @@ using ProgressCallback = std::function<void(const Array<D>&)>;
  * observables. 
  */
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, const Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& s);
+Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& s);
 
 }
 

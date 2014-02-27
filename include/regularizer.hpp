@@ -17,6 +17,7 @@ class Regularizer {
         virtual double getLabel(int var, int l) const = 0;
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const = 0;
         virtual double primal(const double* x) const = 0;
+        virtual void sampleLabels(const Array<D>& x) { };
 };
 
 template <int D>
@@ -40,14 +41,19 @@ class GridRegularizer : public Regularizer<D> {
             : _extents(extents)
             , _numLabels(numLabels)
             , _labelScale(labelScale)
+            , _labels(std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; })*numLabels, 0)
             , _smoothMax(smoothMax)
             , _smoothWeight(smoothWeight)
         { 
             assert(_extents.size() == D);
+            int n = std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; });
+            for (int i = 0; i < n; ++i)
+                for (int l = 0; l < _numLabels; ++l)
+                    _labels[i*_numLabels+l] = l*_labelScale;
         }
     private:
         // Internal non-virtual functions to improve inlining
-        double _getLabel(int var, int l) const { return l*_labelScale; }
+        double _getLabel(int var, int l) const { return _labels[var*_numLabels+l]; }
         double _edgeFn(double l1, double l2) const { return _smoothWeight*std::min(_smoothMax, fabs(l1 - l2)); }
 
     public:
@@ -56,10 +62,12 @@ class GridRegularizer : public Regularizer<D> {
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const override;
         virtual double primal(const double* x) const override;
+        virtual void sampleLabels(const Array<D>& x) override;
     private:
         std::vector<int> _extents;
         int _numLabels;
         double _labelScale;
+        std::vector<double> _labels;
         double _smoothMax;
         double _smoothWeight;
 };
