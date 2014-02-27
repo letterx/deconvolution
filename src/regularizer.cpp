@@ -141,17 +141,14 @@ double GridRegularizer<D>::primal(const double* x) const {
 }
 
 template <int D>
-void GridRegularizer<D>::sampleLabels(const Array<D>& x) {
+void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
     for (int i = 0; i < D; ++i)
         assert(x.sizes()[i] == _extents[i]);
     int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
     for (int i = 0; i < n; ++i) {
-        // Set boundaries to consider entire label space (when we convexify)
-        _labels[i*_numLabels] = 0;
-        _labels[i*_numLabels+_numLabels-1] = (_numLabels-1)*_labelScale;
         double val = x.data()[i];
-        for (int l = 1; l < _numLabels-1; ++l) {
-            _labels[i*_numLabels+l] = val+0.5*(l-(_numLabels-2)/2);
+        for (int l = 0; l < _numLabels; ++l) {
+            _labels[i*_numLabels+l] = val+scale*(l-(_numLabels-2)/2);
             _labels[i*_numLabels+l] = std::min(_labels[i*_numLabels+l], _numLabels*_labelScale);
             _labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
         }

@@ -17,7 +17,7 @@ class Regularizer {
         virtual double getLabel(int var, int l) const = 0;
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const = 0;
         virtual double primal(const double* x) const = 0;
-        virtual void sampleLabels(const Array<D>& x) { };
+        virtual void sampleLabels(const Array<D>& x, double scale) { };
 };
 
 template <int D>
@@ -62,7 +62,7 @@ class GridRegularizer : public Regularizer<D> {
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const override;
         virtual double primal(const double* x) const override;
-        virtual void sampleLabels(const Array<D>& x) override;
+        virtual void sampleLabels(const Array<D>& x, double scale) override;
     private:
         std::vector<int> _extents;
         int _numLabels;

@@ -171,7 +171,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     std::function<double(const Array<D>& x)> primalFn = 
         [&](const Array<D>& x) -> double {
             auto res = H(x) - y;
-            return dot(res, res) + R.primal(x.data());
+            return dot(res, res) + 0.03*dot(x, x) + R.primal(x.data());
         };
 
 
@@ -186,8 +186,6 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMin<D>(Q, b, x);
-
-    R.sampleLabels(x);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];
@@ -208,18 +206,23 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     //params.past = 100;
     params.max_iterations = 500;
     params.epsilon = 0.2;
-    double smoothing = 1000;
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
-    for (; smoothing >= 1.0; smoothing /= 2) {
-        std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
-        auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
-        auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
-        pc(x);
-        double primal = primalFn(x);
-        if (primal < -fVal) break;
-        std::cout << "\tL-BFGS finished: " << retCode << "\n";
+    for (int samplingIter = 0; samplingIter < 4; ++samplingIter) {
+        double smoothing = 1000;
+        for (; smoothing >= 1.0; smoothing /= 2) {
+            std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
+            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
+            auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
+            pc(x);
+            double primal = primalFn(x);
+            if (primal < -fVal) break;
+            std::cout << "\tL-BFGS finished: " << retCode << "\n";
+        }
+        std::cout << "*** Resampling ***\n";
+        R.sampleLabels(x, 1.0/((samplingIter+1)*(samplingIter+1)));
     }
+
     
     //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
 
