@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "Convolving\n";
-    auto blur = convolve(y, ker);
+    auto blur = convolveFFT(y, ker);
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
@@ -88,25 +88,12 @@ int main(int argc, char **argv) {
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
-    cv::waitKey(0);
-
-    std::cout << "Convolving FFTW\n";
-    blur = convolveFFT(y, ker);
-
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            image.at<unsigned char>(j,i) = blur[i][j];
-        }
-    }
-
-    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-    cv::imshow("Display Window", image);
-    cv::waitKey(0);
+    cv::waitKey(1);
 
 
     deconvolution::LinearSystem<2> H = 
         [&](const deconvolution::Array<2>& x) -> deconvolution::Array<2> {
-            return convolve(x, ker);
+            return convolveFFT(x, ker);
         };
 
     constexpr int nLabels = 16;
@@ -153,7 +140,7 @@ int main(int argc, char **argv) {
     cv::imshow("Display Window", image);
     cv::waitKey(1);
 
-    auto reblur = convolve(deblur, ker);
+    auto reblur = convolveFFT(deblur, ker);
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
