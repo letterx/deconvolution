@@ -1,2 +1,7 @@
 Parallelize regularizer loop
 FFT in Sum-Product algorithm
+Integrate with MATLAB
+Check LBFGS error codes
+Calculate unsmoothed dual
+Add more parameters to control things at runtime
+Add logging callback to print things in MATLAB

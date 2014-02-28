@@ -1,7 +1,10 @@
 #include "regularizer.hpp"
 #include <iostream>
+#include <cfloat>
 
 namespace deconvolution {
+
+static double logEpsilon = log(DBL_EPSILON);
 
 void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<int>& base) {
     for (int pos = 0; pos < int(extents.size()); ++pos) {
@@ -70,8 +73,11 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
-                    sumExp += exp(labelCosts[lPrev] - maxMessage);
+                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                    double shiftedCost = labelCosts[lPrev] - maxMessage;
+                    if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
+                        sumExp += exp(shiftedCost);
+                }
                 m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
             }
         }
@@ -90,8 +96,11 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev)
-                    sumExp += exp(labelCosts[lPrev] - maxMessage);
+                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                    double shiftedCost = labelCosts[lPrev] - maxMessage;
+                    if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
+                        sumExp += exp(shiftedCost);
+                }
                 m_R[j*_numLabels+lCurr] = maxMessage + log(sumExp);
             }
         }

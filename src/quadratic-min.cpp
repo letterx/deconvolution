@@ -156,7 +156,7 @@ class Preconditioner {
 
 template <int D>
 double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) {
-    double tol = 1e-7;
+    double tol = 1e-9;
     int maxIter = 100;
     auto M = Matrix<D>{Q, Q};
     auto B = Vector<D>{0.5*b};
