@@ -143,7 +143,7 @@ double GridRegularizer<D>::primal(const double* x) const {
 template <int D>
 void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
     for (int i = 0; i < D; ++i)
-        assert(x.sizes()[i] == _extents[i]);
+        assert(static_cast<int>(x.shape()[i]) == _extents[i]);
     int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
     for (int i = 0; i < n; ++i) {
         double val = x.data()[i];

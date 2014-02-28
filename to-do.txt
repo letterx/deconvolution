@@ -1,3 +1,2 @@
-Change QuadraticMin code to use actual linear solver
 Parallelize regularizer loop
 FFT in Sum-Product algorithm

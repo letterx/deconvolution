@@ -67,7 +67,7 @@ static double deconvolveEvaluate(
     stats.regularizerTime += Duration{Clock::now() - startTime}.count();
 
     startTime = Clock::now();
-    double dataObjective = quadraticMin<D>(Q, bPlusNu, x) + constantTerm;
+    double dataObjective = quadraticMinCG<D>(Q, bPlusNu, x) + constantTerm;
     for (int i = 0; i < numPrimalVars; ++i)
         grad[i+numLambda] = -x.data()[i];
     stats.dataTime += Duration{Clock::now() - startTime}.count();
@@ -185,7 +185,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
         x.data()[i] = 0;
     }
     std::cout << "Finding least-squares fit\n";
-    quadraticMin<D>(Q, b, x);
+    quadraticMinCG<D>(Q, b, x);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];

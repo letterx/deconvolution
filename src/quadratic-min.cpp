@@ -3,6 +3,7 @@
 #include "util.hpp"
 #include <lbfgs.h>
 #include <iostream>
+#include "cg.h"
 
 namespace deconvolution {
 
@@ -73,8 +74,106 @@ double quadraticMin(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) {
     return fVal;
 }
 
+template <int D>
+class Vector {
+    public:
+        Vector() = default;
+        explicit Vector(const Array<D>& data) : _data(data) { };
+        Vector& operator=(const Vector& v) {
+            if (_data.num_elements() != v._data.num_elements())
+                _data.resize(std::vector<typename Array<D>::size_type>(v._data.shape(), v._data.shape()+D));
+            _data = v._data;
+            return *this;
+        }
+
+        Vector& operator=(double scalar) {
+            for (auto& x : _data)
+                x = scalar;
+            return *this;
+        };
+        Vector& operator+=(const Vector& v) {
+            _data += v.data();
+            return *this;
+        }
+        Vector<D> operator+(const Vector& v) const {
+            return Vector<D>{_data+v._data};
+        }
+        Vector& operator-=(const Vector& v) {
+            _data -= v.data();
+            return *this;
+        }
+        Vector<D> operator-(const Vector& v) const {
+            return Vector<D>{_data-v._data};
+        }
+        double operator()(int idx) const {
+            return _data.data()[idx];
+        }
+        Array<D>& data() { return _data; }
+        const Array<D>& data() const { return _data; }
+    protected:
+        Array<D> _data;
+};
+
+template <int D>
+Vector<D> operator*(double scalar, const Vector<D>& v) {
+    return Vector<D>{scalar*v.data()};
+}
+
+template <int D>
+double dot(const Vector<D>& v1, const Vector<D>& v2) {
+    return dot(v1.data(), v2.data());
+}
+
+template <int D>
+double norm(const Vector<D>& v) {
+    return norm(v.data());
+}
+
+template <int D>
+class Matrix {
+    public:
+        Matrix(const LinearSystem<D>& M, const LinearSystem<D>& Mt) : _M(M), _Mt(Mt) { };
+        Vector<D> operator*(const Vector<D>& v) const {
+            return Vector<D>{_M(v.data())};
+        };
+        Vector<D> trans_mult(const Vector<D>& v) const {
+            return Vector<D>{_Mt(v.data())};
+        };
+
+    protected:
+        const LinearSystem<D>& _M;
+        const LinearSystem<D>& _Mt;
+};
+
+template <int D>
+class Preconditioner {
+    public:
+        Vector<D> solve(const Vector<D>& v) const { return v; }
+        Vector<D> trans_solve(const Vector<D>& v) const { return v; }
+};
+
+        
+
+template <int D>
+double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) {
+    double tol = 1e-7;
+    int maxIter = 100;
+    auto M = Matrix<D>{Q, Q};
+    auto B = Vector<D>{0.5*b};
+    auto X = Vector<D>{x};
+    auto P = Preconditioner<D>{};
+
+    auto retCode = CG(M, X, B, P, maxIter, tol);
+    if (retCode)
+        std::cout << "*** GC reached maxIter --- residual: " << tol << "***\n";
+    x = X.data();
+    return dot(x, Q(x)) - dot(b, x);
+}
+
 #define INSTANTIATE_DECONVOLVE(d) \
-    template double quadraticMin<d>(const LinearSystem<d>& Q, const Array<d>& b, Array<d>& x);
+    template double quadraticMin<d>(const LinearSystem<d>& Q, const Array<d>& b, Array<d>& x); \
+    template double quadraticMinCG<d>(const LinearSystem<d>& Q, const Array<d>& b, Array<d>& x);
+
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

@@ -29,6 +29,7 @@ include_directories(${DECONVOLVE_SOURCE_DIR}/src)
 
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
+include_directories("src/iml")
 
 set(deconvolve-sources
     src/deconvolve.cpp
