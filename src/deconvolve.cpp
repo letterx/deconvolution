@@ -150,14 +150,16 @@ static int deconvolveProgress(
     nuNorm = sqrt(nuNorm);
     nuGradNorm = sqrt(nuGradNorm);
 
-    double primal = data->primalFn(data->x);
+    double primalData = data->primalFn(data->x);
+    double primalReg  = data->R.primal(data->x.data());
+    double primal = primalData + primalReg;
 
     std::cout << "Deconvolve Iteration " << k << "\n";
     std::cout << "\tf(x): " << -fx << "\tprimal: " << primal << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
     std::cout << "\n";
-    data->pc(data->x);
+    data->pc(data->x, -fx, primalData, primalReg, data->smoothing);
     return 0;
 }
 
@@ -171,7 +173,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     std::function<double(const Array<D>& x)> primalFn = 
         [&](const Array<D>& x) -> double {
             auto res = H(x) - y;
-            return dot(res, res) + 0.03*dot(x, x) + R.primal(x.data());
+            return dot(res, res) + 0.03*dot(x, x);
         };
 
 
@@ -208,14 +210,13 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     params.epsilon = 0.2;
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
-    for (int samplingIter = 0; samplingIter < 4; ++samplingIter) {
+    for (int samplingIter = 0; samplingIter < 1; ++samplingIter) {
         double smoothing = 1000;
         for (; smoothing >= 8.0; smoothing /= 2) {
             std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
             auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
-            pc(x);
-            double primal = primalFn(x);
+            double primal = primalFn(x) + R.primal(x.data());
             if (primal < -fVal) break;
             std::cout << "\tL-BFGS finished: " << retCode << "\n";
         }

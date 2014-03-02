@@ -27,13 +27,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgTxt("Input error: y must be 3-dimensional array");
     const std::vector<int> matlabDims(mxGetDimensions(mex_y), mxGetDimensions(mex_y)+numDims);
     const std::vector<int> dims(matlabDims.rbegin(), matlabDims.rend());
-    const int size = std::accumulate(begin(dims), end(dims), 0);
+    const int size = std::accumulate(begin(dims), end(dims), 1, [](double a, double b) { return a*b;});
 
     Array<3> y{dims};
     y.assign(mxGetPr(mex_y), mxGetPr(mex_y)+size);
 
+    mxArray* callbackArray = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
+
     LinearSystem<3> H = [&](const Array<3>& x) -> Array<3> {
-        mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_H), mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL) };
+        mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_H), callbackArray };
         mxArray* callbackLhs[] = { nullptr };
         double* argData = mxGetPr(callbackRhs[1]);
         for (int i = 0; i < size; ++i) 
@@ -43,12 +45,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         double *lhsData = mxGetPr(callbackLhs[0]);
         for (int i = 0; i < size; ++i)
             result.data()[i] = lhsData[i];
-        mxDestroyArray(callbackRhs[1]);
         mxDestroyArray(callbackLhs[0]);
         return result;
     };
     LinearSystem<3> Ht = [&](const Array<3>& x) -> Array<3> {
-        mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_Ht), mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL) };
+        mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_Ht), callbackArray };
         mxArray* callbackLhs[] = { nullptr };
         double* argData = mxGetPr(callbackRhs[1]);
         for (int i = 0; i < size; ++i) 
@@ -58,29 +59,34 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         double *lhsData = mxGetPr(callbackLhs[0]);
         for (int i = 0; i < size; ++i)
             result.data()[i] = lhsData[i];
-        mxDestroyArray(callbackRhs[1]);
         mxDestroyArray(callbackLhs[0]);
         return result;
     };
-    DummyRegularizer<3> R{};
-    ProgressCallback<3> pc = [&](const Array<3>& x) { 
-        mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_progress), mxCreateDoubleScalar(0.0) };
-        mexCallMATLAB(0, nullptr, 2, callbackRhs, "feval");
-        mxDestroyArray(callbackRhs[1]);
-        throw DeconvolutionMexException{"Terminating in progress callback"};
+    GridRegularizer<3> R{dims, 4, 2.0, 5.0, 1.0};
+    ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
+        mxArray* callbackRhs[] = { 
+            const_cast<mxArray*>(mex_progress), 
+            callbackArray,
+            mxCreateDoubleScalar(dual),
+            mxCreateDoubleScalar(primalData),
+            mxCreateDoubleScalar(primalReg),
+            mxCreateDoubleScalar(smoothing)
+        };
+        double* argData = mxGetPr(callbackRhs[1]);
+        for (int i = 0; i < size; ++i) 
+            argData[i] = x.data()[i];
+        mexCallMATLAB(0, nullptr, 6, callbackRhs, "feval");
+        //throw DeconvolutionMexException{"Terminating in progress callback"};
     };
     DeconvolveStats stats;
 
     try {
         auto x = Deconvolve<3>(y, H, Ht, R, pc, stats);
+        plhs[0] = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
+        double* resultData = mxGetPr(plhs[0]);
+        for (int i = 0; i < size; ++i) 
+            resultData[i] = x.data()[i];
     } catch (const DeconvolutionMexException& e) {
         mexErrMsgIdAndTxt("Deconvolve:main", "Exception occurred: %s", e.what());
-    } catch (...) {
-        mexErrMsgIdAndTxt("Deconvolve:unknown", "Unknown Exception occurred!");
-    }
-
-
-    plhs[0] = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
-
-    mexPrintf("Success!\n");
+    } 
 }

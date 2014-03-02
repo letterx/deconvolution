@@ -106,16 +106,17 @@ int main(int argc, char **argv) {
     };
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-    deconvolution::ProgressCallback<2> progressCallback = [&](const deconvolution::Array<2>& x) {
-        for (int i = 0; i < width; ++i) {
-            for (int j = 0; j < height; ++j) {
-                image.at<unsigned char>(j,i) = x[i][j];
+    deconvolution::ProgressCallback<2> progressCallback = 
+        [&](const deconvolution::Array<2>& x, double dual, double primalData, double primalReg, double smoothing) {
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    image.at<unsigned char>(j,i) = x[i][j];
+                }
             }
-        }
 
-        cv::imshow("Display Window", image);
-        cv::waitKey(1);
-    };
+            cv::imshow("Display Window", image);
+            cv::waitKey(1);
+        };
 
     deconvolution::DeconvolveStats s = {};
 

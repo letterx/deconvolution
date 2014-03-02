@@ -75,18 +75,27 @@ cost_reg_history = zeros(1,max_iter);
 
 tic
 
-function progress(primal)
+H  = @(arg) m.*(real(ifftn(D.*fftn(arg))));
+Ht = @(arg) real(ifftn(D.*fftn(arg.*m)));
+
+function progress(x, dual, primalData, primalReg, smoothing)
     iter = iter+1;
     time = toc;
-    fprintf('Iteration %d\t value: %8.4f\ttime%8.4f\n', iter, primal, time);
+    fprintf('Iteration %d\t dual: %4.2f\tData: %4.2f\tReg: %4.2f\tSmoothing: %4.2f\ttime %4.2f\n', iter, dual, primalData, primalReg, smoothing, time);
+    wres = H(x) - m.*RDF;
+    fprintf('Calculated data: %4.2f\n', norm(wres(:),2)^2+0.03*norm(x(:),2)^2);
+    if (iter > 100)
+        error('maxiter reached')
+    end
 end
 
-H  = @(x) m.*(real(ifftn(D.*fftn(x))));
-Ht = @(y) real(ifftn(D.*fftn(y.*m)));
 
 fprintf('Begin deconvolveDual\n');
 x = deconvolveDual(H, Ht, m.*RDF, @progress);
 fprintf('End deconvolveDual\n');
+
+wres = m.*(real(ifftn(D.*fftn(x))) - RDF);
+fprintf('Final data term: %f\n', norm(wres(:),2));
 
 %convert x to ppm
 x = x/(2*pi*delta_TE*CF)*1e6.*Mask;

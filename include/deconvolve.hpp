@@ -24,7 +24,7 @@ struct DeconvolveStats {
 };
 
 template <int D>
-using ProgressCallback = std::function<void(const Array<D>&)>;
+using ProgressCallback = std::function<void(const Array<D>& x, double dual, double primalData, double primalReg, double smoothing)>;
 /* 
  * Solve a linear inverse system of the form
  * min_x |y - Hx|_2^2 + R(x)
