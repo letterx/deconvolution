@@ -157,7 +157,7 @@ static int deconvolveProgress(
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
     std::cout << "\n";
-    if (k%10 == 0) data->pc(data->x);
+    data->pc(data->x);
     return 0;
 }
 

@@ -5,3 +5,4 @@ Check LBFGS error codes
 Calculate unsmoothed dual
 Add more parameters to control things at runtime
 Add logging callback to print things in MATLAB
+Preconditioning with estimation of inverse hessian diagonal
