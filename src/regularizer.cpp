@@ -157,9 +157,9 @@ void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
     for (int i = 0; i < n; ++i) {
         double val = x.data()[i];
         for (int l = 0; l < _numLabels; ++l) {
-            _labels[i*_numLabels+l] = val+scale*(l-(_numLabels-2)/2);
-            _labels[i*_numLabels+l] = std::min(_labels[i*_numLabels+l], _numLabels*_labelScale);
-            _labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
+            _labels[i*_numLabels+l] = val+scale*(l-(_numLabels-1)/2);
+            //_labels[i*_numLabels+l] = std::min(_labels[i*_numLabels+l], _numLabels*_labelScale);
+            //_labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
         }
     }
 }

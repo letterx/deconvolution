@@ -164,16 +164,23 @@ static int deconvolveProgress(
 }
 
 template <int D>
-Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveStats& stats) {
+Array<D> Deconvolve(const Array<D>& y, 
+        const LinearSystem<D>& H, 
+        const LinearSystem<D>& Ht, 
+        Regularizer<D>& R, 
+        ProgressCallback<D>& pc, 
+        DeconvolveParams& params,
+        DeconvolveStats& stats) {
     constexpr double datascale = 1;
     Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + 0.03*x; };
+    double dataSmoothing = 0.00000;
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + dataSmoothing*x; };
     double constantTerm = datascale*dot(y, y);
     std::function<double(const Array<D>& x)> primalFn = 
         [&](const Array<D>& x) -> double {
             auto res = H(x) - y;
-            return dot(res, res) + 0.03*dot(x, x);
+            return dot(res, res) + dataSmoothing*dot(x, x);
         };
 
 
@@ -188,6 +195,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Q, b, x);
+    R.sampleLabels(x, 1.0);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];
@@ -200,14 +208,14 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
         }
     }
 
-    lbfgs_parameter_t params;
+    lbfgs_parameter_t lbfgsParams;
     double fVal = 0;
-    lbfgs_parameter_init(&params);
-    //params.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    //params.delta = 0.00001;
-    //params.past = 100;
-    params.max_iterations = 50;
-    params.epsilon = 0.2;
+    lbfgs_parameter_init(&lbfgsParams);
+    //lbfgsParams.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+    //lbfgsParams.delta = 0.00001;
+    //lbfgsParams.past = 100;
+    lbfgsParams.max_iterations = 50;
+    lbfgsParams.epsilon = 0.2;
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
     for (int samplingIter = 0; samplingIter < 1; ++samplingIter) {
@@ -215,7 +223,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
         for (; smoothing >= 8.0; smoothing /= 2) {
             std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
-            auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &params);
+            auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &lbfgsParams);
             double primal = primalFn(x) + R.primal(x.data());
             if (primal < -fVal) break;
             std::cout << "\tL-BFGS finished: " << retCode << "\n";
@@ -231,7 +239,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveStats& s);
+    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s);
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

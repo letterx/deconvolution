@@ -118,11 +118,12 @@ int main(int argc, char **argv) {
             cv::waitKey(1);
         };
 
-    deconvolution::DeconvolveStats s = {};
+    deconvolution::DeconvolveParams params {};
+    deconvolution::DeconvolveStats s{};
 
     auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, s);
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
     std::cout << "Done\n";
 
     std::cout << "Total time:       " << std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count() << "\n";

@@ -30,7 +30,7 @@
 %   Modified by Tian Liu and Shuai Wang on 2011.03.28 add voxel_size in grad and div
 %   Last modified by Tian Liu on 2013.07.24
 
-function [x, cost_reg_history, cost_data_history] = MEDI_Dual(varargin)
+function [x, D, m, RDF, cost_reg_history, cost_data_history] = MEDI_Dual(varargin)
 
 [lambda iFreq RDF N_std iMag Mask matrix_size matrix_size0 voxel_size delta_TE CF B0_dir merit smv radius data_weighting gradient_weighting Debug_Mode] = parse_QSM_input(varargin{:});
 
@@ -82,8 +82,6 @@ function progress(x, dual, primalData, primalReg, smoothing)
     iter = iter+1;
     time = toc;
     fprintf('Iteration %d\t dual: %4.2f\tData: %4.2f\tReg: %4.2f\tSmoothing: %4.2f\ttime %4.2f\n', iter, dual, primalData, primalReg, smoothing, time);
-    wres = H(x) - m.*RDF;
-    fprintf('Calculated data: %4.2f\n', norm(wres(:),2)^2+0.03*norm(x(:),2)^2);
     if (iter > 100)
         error('maxiter reached')
     end
@@ -95,10 +93,10 @@ x = deconvolveDual(H, Ht, m.*RDF, @progress);
 fprintf('End deconvolveDual\n');
 
 wres = m.*(real(ifftn(D.*fftn(x))) - RDF);
-fprintf('Final data term: %f\n', norm(wres(:),2));
+fprintf('Final data term: %f\n', norm(wres(:),2)^2);
 
 %convert x to ppm
-x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
+% x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
 
 if (matrix_size0)
     x = x(1:matrix_size0(1), 1:matrix_size0(2), 1:matrix_size0(3));

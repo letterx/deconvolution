@@ -72,3 +72,4 @@ add_library(deconvolve STATIC ${deconvolve-sources})
 
 add_subdirectory(test)
 add_subdirectory(example)
+add_subdirectory(matlab)

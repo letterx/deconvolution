@@ -62,7 +62,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxDestroyArray(callbackLhs[0]);
         return result;
     };
-    GridRegularizer<3> R{dims, 4, 2.0, 5.0, 1.0};
+    GridRegularizer<3> R{dims, 1, 20.0, 5.0, 0.01};
     ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
         mxArray* callbackRhs[] = { 
             const_cast<mxArray*>(mex_progress), 
@@ -78,10 +78,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexCallMATLAB(0, nullptr, 6, callbackRhs, "feval");
         //throw DeconvolutionMexException{"Terminating in progress callback"};
     };
-    DeconvolveStats stats;
+    DeconvolveParams params{};
+    DeconvolveStats stats{};
 
     try {
-        auto x = Deconvolve<3>(y, H, Ht, R, pc, stats);
+        auto x = Deconvolve<3>(y, H, Ht, R, pc, params, stats);
         plhs[0] = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
         double* resultData = mxGetPr(plhs[0]);
         for (int i = 0; i < size; ++i) 
