@@ -18,11 +18,12 @@ struct DeconvolveData {
     const Regularizer<D>& R;
     int numLambda;
     double constantTerm;
-    double smoothing;
     double lambdaScale;
     ProgressCallback<D>& pc;
+    DeconvolveParams& params;
     DeconvolveStats& stats;
     std::function<double(const Array<D>&)> primalFn;
+    int& totalIters;
 };
 
 template <int D>
@@ -44,7 +45,7 @@ static double deconvolveEvaluate(
     const auto numPerSubproblem = numPrimalVars*numLabels;
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = data->smoothing;
+    const double t = data->params.smoothing;
     const double lambdaScale = data->lambdaScale;
     DeconvolveStats& stats = data->stats;
 
@@ -159,7 +160,7 @@ static int deconvolveProgress(
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
     std::cout << "\n";
-    data->pc(data->x, -fx, primalData, primalReg, data->smoothing);
+    data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
     return 0;
 }
 
@@ -214,15 +215,15 @@ Array<D> Deconvolve(const Array<D>& y,
     //lbfgsParams.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //lbfgsParams.delta = 0.00001;
     //lbfgsParams.past = 100;
-    lbfgsParams.max_iterations = 50;
     lbfgsParams.epsilon = 0.2;
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
+    int totalIters = 0;
     for (int samplingIter = 0; samplingIter < 1; ++samplingIter) {
-        double smoothing = 1000;
-        for (; smoothing >= 8.0; smoothing /= 2) {
-            std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
-            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, smoothing, lambdaScale, pc, stats, primalFn};
+        for (; params.smoothing >= params.minSmoothing; params.smoothing /= 2) {
+            std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
+            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, lambdaScale, pc, params, stats, primalFn, totalIters};
+            lbfgsParams.max_iterations = params.maxIterations - totalIters;
             auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &lbfgsParams);
             double primal = primalFn(x) + R.primal(x.data());
             if (primal < -fVal) break;

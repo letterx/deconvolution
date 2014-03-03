@@ -19,6 +19,8 @@ template <int D> class Regularizer;
 struct DeconvolveParams {
     double dataSmoothing {0.03};
     double smoothing {100.0};
+    double minSmoothing { 10.0 };
+    int maxIterations { 10000 };
 };
 
 struct DeconvolveStats {
