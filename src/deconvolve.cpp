@@ -129,6 +129,9 @@ static int deconvolveProgress(
     const auto numLambda = data->numLambda;
     const double* nu = x + numLambda;
     const double* nuGrad = g + numLambda;
+    
+    data->totalIters++;
+
     double lambdaNorm = 0;
     double lambdaL1 = 0;
     double lambdaGradNorm = 0;
@@ -155,7 +158,7 @@ static int deconvolveProgress(
     double primalReg  = data->R.primal(data->x.data());
     double primal = primalData + primalReg;
 
-    std::cout << "Deconvolve Iteration " << k << "\n";
+    std::cout << "Deconvolve Iteration " << data->totalIters << "\n";
     std::cout << "\tf(x): " << -fx << "\tprimal: " << primal << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
     std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
     std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
@@ -175,13 +178,12 @@ Array<D> Deconvolve(const Array<D>& y,
     constexpr double datascale = 1;
     Array<D> b = 2*datascale*Ht(y);
     Array<D> x = b;
-    double dataSmoothing = 0.00000;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + dataSmoothing*x; };
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return datascale*Ht(H(x)) + params.dataSmoothing*x; };
     double constantTerm = datascale*dot(y, y);
     std::function<double(const Array<D>& x)> primalFn = 
         [&](const Array<D>& x) -> double {
             auto res = H(x) - y;
-            return dot(res, res) + dataSmoothing*dot(x, x);
+            return dot(res, res) + params.dataSmoothing*dot(x, x);
         };
 
 
@@ -220,7 +222,11 @@ Array<D> Deconvolve(const Array<D>& y,
     std::cout << "Begin lbfgs\n";
     int totalIters = 0;
     for (int samplingIter = 0; samplingIter < 1; ++samplingIter) {
+        if (totalIters >= params.maxIterations)
+            break;
         for (; params.smoothing >= params.minSmoothing; params.smoothing /= 2) {
+            if (totalIters >= params.maxIterations)
+                break;
             std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, lambdaScale, pc, params, stats, primalFn, totalIters};
             lbfgsParams.max_iterations = params.maxIterations - totalIters;

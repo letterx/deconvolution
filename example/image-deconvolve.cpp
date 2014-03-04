@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     std::string basename;
     std::string infilename;
     std::string outfilename;
+    std::string blurfilename;
 
     po::options_description options_desc("Deconvolve arguments");
     options_desc.add_options()
@@ -43,6 +44,7 @@ int main(int argc, char **argv) {
     }
     infilename = basename + ".pgm";
     outfilename = basename + "-out.pgm";
+    blurfilename = basename + "-blur.pgm";
 
     cv::Mat image = cv::imread(infilename.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
     if (!image.data) {
@@ -90,6 +92,8 @@ int main(int argc, char **argv) {
     cv::imshow("Display Window", image);
     cv::waitKey(1);
 
+    cv::imwrite(blurfilename.c_str(), image); 
+
 
     deconvolution::LinearSystem<2> H = 
         [&](const deconvolution::Array<2>& x) -> deconvolution::Array<2> {
@@ -99,7 +103,7 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 10.0;
+    constexpr double regularizerWeight = 50.0;
     auto R = deconvolution::GridRegularizer<2>{
         std::vector<int>{width, height}, 
         nLabels, labelScale, smoothMax, regularizerWeight,
@@ -138,6 +142,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    cv::imwrite(outfilename.c_str(), image); 
+
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
     cv::waitKey(1);
@@ -150,7 +156,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    cv::imwrite(outfilename.c_str(), image); 
 
     return 0;
 }

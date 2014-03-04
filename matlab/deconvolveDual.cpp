@@ -15,19 +15,59 @@ class DeconvolutionMexException : public std::exception {
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs != 4 || nlhs != 1) {
-        mexErrMsgTxt("Usage: x = deconvolveDual(H, Ht, y, @progress)");
+        mexErrMsgTxt("Usage: x = deconvolveDual(H, Ht, y, params)");
     }
 
     const mxArray* mex_H = prhs[0];
     const mxArray* mex_Ht = prhs[1];
     const mxArray* mex_y = prhs[2];
-    const mxArray* mex_progress = prhs[3];
+    const mxArray* mex_params = prhs[3];
     const int numDims = mxGetNumberOfDimensions(mex_y);
     if (numDims != 3)
         mexErrMsgTxt("Input error: y must be 3-dimensional array");
     const std::vector<int> matlabDims(mxGetDimensions(mex_y), mxGetDimensions(mex_y)+numDims);
     const std::vector<int> dims(matlabDims.rbegin(), matlabDims.rend());
     const int size = std::accumulate(begin(dims), end(dims), 1, [](double a, double b) { return a*b;});
+
+    if (!mxIsStruct(mex_params))
+        mexErrMsgTxt("Input error: params must be a struct");
+    if (mxGetNumberOfElements(mex_params) != 1)
+        mexErrMsgTxt("Input error: params must be 1x1 struct");
+    
+    DeconvolveParams params{};
+    
+    mxArray *mex_progress = mxGetField(mex_params, 0, "progress");
+    double regularizerWeight = 10.0;
+    double regularizerMax = 10.0;
+    if (!mex_progress)
+        mexErrMsgTxt("Input error: params.progress missing or bad value");
+    {
+        mxArray *mexField = mxGetField(mex_params, 0, "maxIter");
+        if (mexField)
+            params.maxIterations = mxGetPr(mexField)[0];
+        else
+            params.maxIterations = 0;
+
+        mexField = mxGetField(mex_params, 0, "dataSmoothing");
+        if (mexField)
+            params.dataSmoothing = mxGetPr(mexField)[0];
+
+        mexField = mxGetField(mex_params, 0, "smoothing");
+        if (mexField)
+            params.smoothing = mxGetPr(mexField)[0];
+
+        mexField = mxGetField(mex_params, 0, "minSmoothing");
+        if (mexField)
+            params.minSmoothing = mxGetPr(mexField)[0];
+
+        mexField = mxGetField(mex_params, 0, "smoothWeight");
+        if (mexField)
+            regularizerWeight = mxGetPr(mexField)[0];
+
+        mexField = mxGetField(mex_params, 0, "smoothMax");
+        if (mexField)
+            regularizerMax = mxGetPr(mexField)[0];
+    }
 
     Array<3> y{dims};
     y.assign(mxGetPr(mex_y), mxGetPr(mex_y)+size);
@@ -62,7 +102,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxDestroyArray(callbackLhs[0]);
         return result;
     };
-    GridRegularizer<3> R{dims, 1, 20.0, 5.0, 0.01};
+    GridRegularizer<3> R{dims, 3, 4.0, regularizerMax, regularizerWeight};
     ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
         mxArray* callbackRhs[] = { 
             const_cast<mxArray*>(mex_progress), 
@@ -78,7 +118,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexCallMATLAB(0, nullptr, 6, callbackRhs, "feval");
         //throw DeconvolutionMexException{"Terminating in progress callback"};
     };
-    DeconvolveParams params{};
     DeconvolveStats stats{};
 
     try {

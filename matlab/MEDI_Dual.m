@@ -87,9 +87,17 @@ function progress(x, dual, primalData, primalReg, smoothing)
     end
 end
 
+deconvolveParams = struct();
+deconvolveParams.progress = @progress;
+deconvolveParams.maxIter = 50;
+deconvolveParams.dataSmoothing = 0.1;
+deconvolveParams.smoothing = 1000;
+deconvolveParams.minSmoothing = 12;
+deconvolveParams.smoothWeight = 200;
+deconvolveParams.smoothMax = 1.0;
 
 fprintf('Begin deconvolveDual\n');
-x = deconvolveDual(H, Ht, m.*RDF, @progress);
+x = deconvolveDual(H, Ht, m.*RDF, deconvolveParams);
 fprintf('End deconvolveDual\n');
 
 wres = m.*(real(ifftn(D.*fftn(x))) - RDF);
