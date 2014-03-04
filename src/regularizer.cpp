@@ -19,7 +19,7 @@ void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<
 }
 
 template <int D>
-double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const {
+double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const {
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;
 
@@ -60,7 +60,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         // Compute log m_L
         // Base step
         for (int l = 0; l < _numLabels; ++l)
-            m_L[l] = lambdaScale*smoothingMult*lambdaSlice[l];
+            m_L[l] = smoothingMult*lambdaSlice[l];
         // Inductive step
         for (int j = 1; j < width; ++j) {
             int idx = baseIdx/_numLabels+j*stride;
@@ -78,7 +78,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
                         sumExp += exp(shiftedCost);
                 }
-                m_L[j*_numLabels+lCurr] = lambdaScale*lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
+                m_L[j*_numLabels+lCurr] = lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
             }
         }
 
@@ -92,7 +92,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 double domainLCurr = _getLabel(idx, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
                     double domainLPrev = _getLabel(idx+stride, lPrev);
-                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaScale*lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
@@ -117,8 +117,13 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             for (int l = 0; l < _numLabels; ++l)
                 sumExp += exp(logMarg[l] - maxMarg);
             logSumExp = maxMarg + log(sumExp);
-            for (int l = 0; l < _numLabels; ++l)
-                G.data()[baseIdx + j*stride*_numLabels + l] = -lambdaScale*exp(logMarg[l] - logSumExp);
+            for (int l = 0; l < _numLabels; ++l) {
+                double grad_jl = -exp(logMarg[l] - logSumExp);
+                assert(0 <= -grad_jl && -grad_jl <= 1.0);
+                G.data()[baseIdx + j*stride*_numLabels + l] = grad_jl;
+                if (diagHessian)
+                    diagHessian[baseIdx + j*stride*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
+            }
         }
         objective += -smoothing*logSumExp;
     }

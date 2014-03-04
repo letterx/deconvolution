@@ -15,7 +15,7 @@ class Regularizer {
         virtual int numSubproblems() const = 0;
         virtual int numLabels() const = 0;
         virtual double getLabel(int var, int l) const = 0;
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const = 0;
+        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const = 0;
         virtual double primal(const double* x) const = 0;
         virtual void sampleLabels(const Array<D>& x, double scale) { };
 };
@@ -27,7 +27,7 @@ class DummyRegularizer : public Regularizer<D> {
         virtual int numSubproblems() const override { return 0; }
         virtual int numLabels() const override { return 2; }
         virtual double getLabel(int var, int l) const override { return l == 0 ? 0 : 255; }
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const override 
+        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override 
             { return 0; }
         virtual double primal(const double* x) const override { return 0; }
     private:
@@ -60,7 +60,7 @@ class GridRegularizer : public Regularizer<D> {
         virtual int numSubproblems() const override { return D; }
         virtual int numLabels() const override { return _numLabels; }
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double lambdaScale, double* gradient) const override;
+        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
         virtual double primal(const double* x) const override;
         virtual void sampleLabels(const Array<D>& x, double scale) override;
     private:
