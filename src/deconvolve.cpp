@@ -3,12 +3,18 @@
 #include "util.hpp"
 #include "regularizer.hpp"
 #include "optimal-grad.hpp"
-#include <lbfgs.h>
 #include <limits>
 #include <iostream>
 #include <chrono>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wignored-qualifiers"
+#include "optimization.h"
+#pragma clang diagnostic pop
+
 namespace deconvolution{
+
+using namespace alglib;
 
 template <int D>
 struct DeconvolveData {
@@ -27,12 +33,14 @@ struct DeconvolveData {
 };
 
 template <int D>
-static double deconvolveEvaluate(
-        void* instance,
-        const double* dualVars, 
-        double* grad,
-        const int n,
-        const double step) {
+static void lbfgsEvaluate(
+        const real_1d_array& lbfgsX,
+        double& objective,
+        real_1d_array& lbfgsGrad,
+        void* instance) {
+    const double* dualVars = lbfgsX.getcontent();
+    double* grad = lbfgsGrad.getcontent();
+    const int n = lbfgsX.length();
     auto* data = static_cast<DeconvolveData<D>*>(instance);
     auto& x = data->x;
     const auto& b = data->b;
@@ -103,68 +111,29 @@ static double deconvolveEvaluate(
 
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
-    double objective = -(regularizerObjective + dataObjective + unaryObjective);
-    std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
+    objective = -(regularizerObjective + dataObjective + unaryObjective);
+    //std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
 
     stats.iterTime += Duration{Clock::now() - iterStartTime}.count();
 
-    return objective;
 }
 
 template <int D>
-static int deconvolveProgress(
-        void *instance,
-        const double *x,
-        const double *g,
-        const double fx,
-        const double xnorm,
-        const double gnorm,
-        const double step,
-        int n,
-        int k,
-        int ls) {
+static void lbfgsProgress(
+        const real_1d_array& lbfgsX,
+        double fx,
+        void *instance) {
     auto* data = static_cast<DeconvolveData<D>*>(instance);
-    //auto& x = data->x;
-    const auto numPrimalVars = int(data->x.num_elements());
-    const auto numLambda = data->numLambda;
-    const double* nu = x + numLambda;
-    const double* nuGrad = g + numLambda;
     
     data->totalIters++;
-
-    double lambdaNorm = 0;
-    double lambdaL1 = 0;
-    double lambdaGradNorm = 0;
-    for (int i = 0; i < numLambda; ++i) {
-        lambdaNorm += x[i]*x[i];
-        lambdaL1 += fabs(x[i]);
-        lambdaGradNorm += g[i]*g[i];
-    }
-    lambdaNorm = sqrt(lambdaNorm);
-    lambdaGradNorm = sqrt(lambdaGradNorm);
-
-    double nuNorm = 0;
-    double nuL1 = 0;
-    double nuGradNorm = 0;
-    for (int i = 0; i < numPrimalVars; ++i) {
-        nuNorm += nu[i];
-        nuL1 += fabs(nu[i]);
-        nuGradNorm += nuGrad[i]*nuGrad[i];
-    }
-    nuNorm = sqrt(nuNorm);
-    nuGradNorm = sqrt(nuGradNorm);
 
     double primalData = data->primalFn(data->x);
     double primalReg  = data->R.primal(data->x.data());
     double primal = primalData + primalReg;
 
-    std::cout << "Deconvolve Iteration " << data->totalIters << "\n";
-    std::cout << "\tf(x): " << -fx << "\tprimal: " << primal << "\txnorm: " << xnorm << "\tgnorm: " << gnorm << "\tstep: " << step << "\n";
-    std::cout << "\t||lambda||: " << lambdaNorm << "\t||lambda||_1: " << lambdaL1 << "\t||Grad lambda||: " << lambdaGradNorm << "\n";
-    std::cout << "\t||nu||:     " << nuNorm     << "\t||nu||_1:     " << nuL1     << "\t||Grad nu||:     " << nuGradNorm << "\n";
-    std::cout << "\n";
+    std::cout << "Deconvolve Iteration " << data->totalIters << "\t";
+    std::cout << "dual: " << -fx << "\tprimal: " << primal << "\n";
     data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
-    return 0;
 }
 
 template <int D>
@@ -211,13 +180,17 @@ Array<D> Deconvolve(const Array<D>& y,
         }
     }
 
-    lbfgs_parameter_t lbfgsParams;
     double fVal = 0;
-    lbfgs_parameter_init(&lbfgsParams);
-    //lbfgsParams.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    //lbfgsParams.delta = 0.00001;
-    //lbfgsParams.past = 100;
-    lbfgsParams.epsilon = 0.2;
+
+    real_1d_array lbfgsX;
+    lbfgsX.setcontent(numDualVars, dualVars.get());
+
+    minlbfgsstate lbfgsState;
+    minlbfgsreport lbfgsReport;
+
+    minlbfgscreate(10, lbfgsX, lbfgsState);
+    minlbfgssetxrep(lbfgsState, true);
+
     double lambdaScale = 100;
     std::cout << "Begin lbfgs\n";
     int totalIters = 0;
@@ -229,11 +202,15 @@ Array<D> Deconvolve(const Array<D>& y,
                 break;
             std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, lambdaScale, pc, params, stats, primalFn, totalIters};
-            lbfgsParams.max_iterations = params.maxIterations - totalIters;
-            auto retCode = lbfgs(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData, &lbfgsParams);
+
+            minlbfgssetcond(lbfgsState, 0.1, 0, 0, params.maxIterations - totalIters);
+            minlbfgsrestartfrom(lbfgsState, lbfgsX);
+            minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
+            minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
+
             double primal = primalFn(x) + R.primal(x.data());
             if (primal < -fVal) break;
-            std::cout << "\tL-BFGS finished: " << retCode << "\n";
+            std::cout << "\tL-BFGS finished\n";
         }
         std::cout << "*** Resampling ***\n";
         R.sampleLabels(x, 1.0/((samplingIter+1)*(samplingIter+1)));

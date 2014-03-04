@@ -30,12 +30,21 @@ include_directories(${DECONVOLVE_SOURCE_DIR}/src)
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories("src/iml")
+include_directories("src/alglib")
 
 set(deconvolve-sources
     src/deconvolve.cpp
     src/quadratic-min.cpp
     src/regularizer.cpp
     src/optimal-grad.cpp
+    )
+
+set(alglib-sources
+    src/alglib/optimization.cpp
+    src/alglib/alglibinternal.cpp
+    src/alglib/ap.cpp
+    src/alglib/linalg.cpp
+    src/alglib/alglibmisc.cpp
     )
 
 ###
@@ -57,13 +66,14 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR
 	#
     set(CMAKE_CXX_FLAGS "--std=c++11 ${GCC_WARNING_FLAGS} ${CMAKE_CXX_FLAGS}")
 	#
+    set_source_files_properties(${alglib-sources} PROPERTIES COMPILE_FLAGS "-w")
 endif()
 
 ###
 ### Target: libdeconvolve
 ###
 
-add_library(deconvolve STATIC ${deconvolve-sources})
+add_library(deconvolve STATIC ${deconvolve-sources} ${alglib-sources})
 
 
 ###

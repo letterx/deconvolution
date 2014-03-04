@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
         };
 
     deconvolution::DeconvolveParams params {};
+    //params.maxIterations = 50;
     deconvolution::DeconvolveStats s{};
 
     auto startTime = std::chrono::system_clock::now();
