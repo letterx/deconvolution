@@ -40,6 +40,8 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     std::vector<double> m_R(_numLabels*width, 0);
     std::vector<double> logMarg(_numLabels, 0);
     std::vector<double> labelCosts(_numLabels, 0);
+    std::vector<double> currLabels(_numLabels, 0);
+    std::vector<double> prevLabels(_numLabels, 0);
     const double smoothingMult = 1.0/smoothing;
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         int baseIdx = 0;
@@ -59,17 +61,19 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
 
         // Compute log m_L
         // Base step
-        for (int l = 0; l < _numLabels; ++l)
+        for (int l = 0; l < _numLabels; ++l) {
             m_L[l] = smoothingMult*lambdaSlice[l];
+            currLabels[l] = _getLabel(baseIdx/_numLabels, l);
+        }
         // Inductive step
         for (int j = 1; j < width; ++j) {
             int idx = baseIdx/_numLabels+j*stride;
+            std::swap(currLabels, prevLabels);
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                currLabels[lCurr] = _getLabel(idx, lCurr);
                 double maxMessage = std::numeric_limits<double>::lowest();
-                double domainLCurr = _getLabel(idx, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double domainLPrev = _getLabel(idx-stride, lPrev);
-                    labelCosts[lPrev] = -_edgeFn(domainLPrev, domainLCurr)*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -_edgeFn(prevLabels[lPrev], currLabels[lCurr])*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
@@ -83,16 +87,18 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         }
 
         // Compute log m_R
-        for (int lCurr = 0; lCurr < _numLabels; ++lCurr)
+        for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
             m_R[(width-1)*_numLabels+lCurr] = 0.0;
+            currLabels[lCurr] = _getLabel(baseIdx/_numLabels+(width-1)*stride, lCurr);
+        }
         for (int j = width-2; j >= 0; --j) {
             int idx = baseIdx/_numLabels+j*stride;
+            std::swap(currLabels, prevLabels);
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                currLabels[lCurr] = _getLabel(idx, lCurr);
                 double maxMessage = std::numeric_limits<double>::lowest();
-                double domainLCurr = _getLabel(idx, lCurr);
                 for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double domainLPrev = _getLabel(idx+stride, lPrev);
-                    labelCosts[lPrev] = -(_edgeFn(domainLCurr, domainLPrev) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
+                    labelCosts[lPrev] = -(_edgeFn(currLabels[lCurr], prevLabels[lPrev]) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
                     maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                 }
                 double sumExp = 0;
