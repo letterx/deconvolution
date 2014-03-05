@@ -1,6 +1,7 @@
 #include "regularizer.hpp"
 #include <iostream>
 #include <cfloat>
+#include "util.hpp"
 
 namespace deconvolution {
 
@@ -23,17 +24,14 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;
 
-    std::vector<int> lambdaExtents = _extents;
-    lambdaExtents.push_back(numLabels());
-    assert(lambdaExtents.size() == D+1);
-    auto L = boost::const_multi_array_ref<double, D+1>{lambda_a, lambdaExtents};
-    auto G = boost::multi_array_ref<double, D+1>{gradient, lambdaExtents};
+    auto extents = arrFromVec<D>(_extents);
+    auto strides = stridesFromExtents(extents);
 
-    int width = _extents[subproblem]; // Length along this dimension of the grid
+    int width = extents[subproblem]; // Length along this dimension of the grid
     std::vector<int> base(D, 0);
     int numBases = 1;
     for (int i = 0; i < D; ++i)
-        numBases *= (i == subproblem) ? 1 : _extents[i];
+        numBases *= (i == subproblem) ? 1 : extents[i];
 
     std::vector<double> lambdaSlice(_numLabels*width, 0);
     std::vector<double> m_L(_numLabels*width, 0);
@@ -45,29 +43,22 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     const double smoothingMult = 1.0/smoothing;
     for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
         int baseIdx = 0;
-        for (int i = 0; i < D; ++i) baseIdx += base[i]*L.strides()[i];
-        int stride = L.strides()[subproblem]/_numLabels;
-        assert(L.strides()[D] == 1);
-        assert(stride*_numLabels == L.strides()[subproblem]);
-        /*
-        std::cout << "\tbase: ";
-        for (auto idx : base) std::cout << idx << " ";
-        std::cout << "\n";
-        */
+        for (int i = 0; i < D; ++i) baseIdx += base[i]*strides[i];
+        int stride = strides[subproblem];
 
         for (int j = 0; j < width; ++j)
             for (int l = 0; l < _numLabels; ++l)
-                lambdaSlice[j*_numLabels + l] = L.data()[baseIdx + j*stride*_numLabels + l];
+                lambdaSlice[j*_numLabels + l] = lambda_a[(baseIdx + j*stride)*_numLabels + l];
 
         // Compute log m_L
         // Base step
         for (int l = 0; l < _numLabels; ++l) {
             m_L[l] = smoothingMult*lambdaSlice[l];
-            currLabels[l] = _getLabel(baseIdx/_numLabels, l);
+            currLabels[l] = _getLabel(baseIdx, l);
         }
         // Inductive step
         for (int j = 1; j < width; ++j) {
-            int idx = baseIdx/_numLabels+j*stride;
+            int idx = baseIdx+j*stride;
             std::swap(currLabels, prevLabels);
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 currLabels[lCurr] = _getLabel(idx, lCurr);
@@ -89,10 +80,10 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
         // Compute log m_R
         for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
             m_R[(width-1)*_numLabels+lCurr] = 0.0;
-            currLabels[lCurr] = _getLabel(baseIdx/_numLabels+(width-1)*stride, lCurr);
+            currLabels[lCurr] = _getLabel(baseIdx+(width-1)*stride, lCurr);
         }
         for (int j = width-2; j >= 0; --j) {
-            int idx = baseIdx/_numLabels+j*stride;
+            int idx = baseIdx+j*stride;
             std::swap(currLabels, prevLabels);
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
                 currLabels[lCurr] = _getLabel(idx, lCurr);
@@ -126,9 +117,9 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
             for (int l = 0; l < _numLabels; ++l) {
                 double grad_jl = -exp(logMarg[l] - logSumExp);
                 assert(0 <= -grad_jl && -grad_jl <= 1.0);
-                G.data()[baseIdx + j*stride*_numLabels + l] = grad_jl;
+                gradient[(baseIdx + j*stride)*_numLabels + l] = grad_jl;
                 if (diagHessian)
-                    diagHessian[baseIdx + j*stride*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
+                    diagHessian[(baseIdx + j*stride)*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
             }
         }
         objective += -smoothing*logSumExp;
