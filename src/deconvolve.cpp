@@ -229,7 +229,7 @@ Array<D> Deconvolve(const Array<D>& y,
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Q, b, x);
-    R.sampleLabels(x, 1.0);
+    R.sampleLabels(x, 0.25);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];
@@ -267,7 +267,7 @@ Array<D> Deconvolve(const Array<D>& y,
             std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState};
 
-            minlbfgssetcond(lbfgsState, 0.1, 0.0001, 0, params.maxIterations - totalIters);
+            minlbfgssetcond(lbfgsState, 1.0, 0, 0, params.maxIterations - totalIters);
             minlbfgsrestartfrom(lbfgsState, lbfgsX);
             minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
             minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);

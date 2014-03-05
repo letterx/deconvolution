@@ -89,9 +89,9 @@ end
 
 deconvolveParams = struct();
 deconvolveParams.progress = @progress;
-deconvolveParams.maxIter = 50;
-deconvolveParams.dataSmoothing = 0.1;
-deconvolveParams.smoothing = 1000;
+deconvolveParams.maxIter = 0;
+deconvolveParams.dataSmoothing = 0.0005;
+deconvolveParams.smoothing = 100;
 deconvolveParams.minSmoothing = 12;
 deconvolveParams.smoothWeight = 200;
 deconvolveParams.smoothMax = 1.0;

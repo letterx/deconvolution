@@ -102,7 +102,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxDestroyArray(callbackLhs[0]);
         return result;
     };
-    GridRegularizer<3> R{dims, 3, 4.0, regularizerMax, regularizerWeight};
+    GridRegularizer<3> R{dims, 9, 4.0, regularizerMax, regularizerWeight};
     ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
         mxArray* callbackRhs[] = { 
             const_cast<mxArray*>(mex_progress), 
@@ -129,4 +129,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     } catch (const DeconvolutionMexException& e) {
         mexErrMsgIdAndTxt("Deconvolve:main", "Exception occurred: %s", e.what());
     } 
+
+    mexPrintf("Iteration time:   %f\n", stats.iterTime);
+    mexPrintf("Regularizer time: %f\n", stats.regularizerTime);
+    mexPrintf("Data time:        %f\n", stats.dataTime);
+    mexPrintf("Unary time:       %f\n", stats.unaryTime);
 }
