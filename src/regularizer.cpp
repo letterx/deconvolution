@@ -1,7 +1,9 @@
 #include "regularizer.hpp"
 #include <iostream>
 #include <cfloat>
+#include <mutex>
 #include "util.hpp"
+#include "tbb/tbb.h"
 
 namespace deconvolution {
 
@@ -23,107 +25,118 @@ template <int D>
 double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const {
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;
+    std::mutex objectiveMutex;
 
-    auto extents = arrFromVec<D>(_extents);
-    auto strides = stridesFromExtents(extents);
-
-    int width = extents[subproblem]; // Length along this dimension of the grid
-    std::vector<int> base(D, 0);
-    int numBases = 1;
-    for (int i = 0; i < D; ++i)
-        numBases *= (i == subproblem) ? 1 : extents[i];
-
-    std::vector<double> lambdaSlice(_numLabels*width, 0);
-    std::vector<double> m_L(_numLabels*width, 0);
-    std::vector<double> m_R(_numLabels*width, 0);
-    std::vector<double> logMarg(_numLabels, 0);
-    std::vector<double> labelCosts(_numLabels, 0);
-    std::vector<double> currLabels(_numLabels, 0);
-    std::vector<double> prevLabels(_numLabels, 0);
+    std::vector<int> augmentedExtents(_extents);
+    augmentedExtents.push_back(1);
+    const auto extents = arrFromVec<D+1>(augmentedExtents);
+    const auto strides = stridesFromExtents(extents);
+    const int width = extents[subproblem]; // Length along this dimension of the grid
     const double smoothingMult = 1.0/smoothing;
-    for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
-        int baseIdx = 0;
-        for (int i = 0; i < D; ++i) baseIdx += base[i]*strides[i];
-        int stride = strides[subproblem];
 
-        for (int j = 0; j < width; ++j)
-            for (int l = 0; l < _numLabels; ++l)
-                lambdaSlice[j*_numLabels + l] = lambda_a[(baseIdx + j*stride)*_numLabels + l];
+    std::array<int, D+1> order;
+    for (int i = 0; i < D+1; ++i) order[i] = i;
+    order = bringToFront(order, subproblem);
 
-        // Compute log m_L
-        // Base step
-        for (int l = 0; l < _numLabels; ++l) {
-            m_L[l] = smoothingMult*lambdaSlice[l];
-            currLabels[l] = _getLabel(baseIdx, l);
-        }
-        // Inductive step
-        for (int j = 1; j < width; ++j) {
-            int idx = baseIdx+j*stride;
-            std::swap(currLabels, prevLabels);
+    tbb::parallel_for(size_t(0), size_t(extents[order[1]]), [&](size_t i) {
+        int baseIdx = i*strides[order[1]];
+        std::vector<double> lambdaSlice(_numLabels*width, 0);
+        std::vector<double> m_L(_numLabels*width, 0);
+        std::vector<double> m_R(_numLabels*width, 0);
+        std::vector<double> logMarg(_numLabels, 0);
+        std::vector<double> labelCosts(_numLabels, 0);
+        std::vector<double> currLabels(_numLabels, 0);
+        std::vector<double> prevLabels(_numLabels, 0);
+
+        double objective_i = 0;
+
+        arrayForEachTail<D+1, 2>(order, extents, strides, baseIdx, 
+                [&](int baseIdx) -> void {
+            int stride = strides[subproblem];
+
+            for (int j = 0; j < width; ++j)
+                for (int l = 0; l < _numLabels; ++l)
+                    lambdaSlice[j*_numLabels + l] = lambda_a[(baseIdx + j*stride)*_numLabels + l];
+
+            // Compute log m_L
+            // Base step
+            for (int l = 0; l < _numLabels; ++l) {
+                m_L[l] = smoothingMult*lambdaSlice[l];
+                currLabels[l] = _getLabel(baseIdx, l);
+            }
+            // Inductive step
+            for (int j = 1; j < width; ++j) {
+                int idx = baseIdx+j*stride;
+                std::swap(currLabels, prevLabels);
+                for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                    currLabels[lCurr] = _getLabel(idx, lCurr);
+                    double maxMessage = std::numeric_limits<double>::lowest();
+                    for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                        labelCosts[lPrev] = -_edgeFn(prevLabels[lPrev], currLabels[lCurr])*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
+                        maxMessage = std::max(maxMessage, labelCosts[lPrev]);
+                    }
+                    double sumExp = 0;
+                    for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                        double shiftedCost = labelCosts[lPrev] - maxMessage;
+                        if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
+                            sumExp += exp(shiftedCost);
+                    }
+                    m_L[j*_numLabels+lCurr] = lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
+                }
+            }
+
+            // Compute log m_R
             for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-                currLabels[lCurr] = _getLabel(idx, lCurr);
-                double maxMessage = std::numeric_limits<double>::lowest();
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    labelCosts[lPrev] = -_edgeFn(prevLabels[lPrev], currLabels[lCurr])*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
-                    maxMessage = std::max(maxMessage, labelCosts[lPrev]);
+                m_R[(width-1)*_numLabels+lCurr] = 0.0;
+                currLabels[lCurr] = _getLabel(baseIdx+(width-1)*stride, lCurr);
+            }
+            for (int j = width-2; j >= 0; --j) {
+                int idx = baseIdx+j*stride;
+                std::swap(currLabels, prevLabels);
+                for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                    currLabels[lCurr] = _getLabel(idx, lCurr);
+                    double maxMessage = std::numeric_limits<double>::lowest();
+                    for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                        labelCosts[lPrev] = -(_edgeFn(currLabels[lCurr], prevLabels[lPrev]) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
+                        maxMessage = std::max(maxMessage, labelCosts[lPrev]);
+                    }
+                    double sumExp = 0;
+                    for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                        double shiftedCost = labelCosts[lPrev] - maxMessage;
+                        if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
+                            sumExp += exp(shiftedCost);
+                    }
+                    m_R[j*_numLabels+lCurr] = maxMessage + log(sumExp);
+                }
+            }
+
+            // Compute marginals, put them in G
+            double logSumExp = 0;
+            for (int j = 0; j < width; ++j) {
+                double maxMarg = std::numeric_limits<double>::lowest();
+                for (int l = 0; l < _numLabels; ++l) {
+                    logMarg[l] = m_L[j*_numLabels+l] + m_R[j*_numLabels+l];
+                    maxMarg = std::max(maxMarg, logMarg[l]);
                 }
                 double sumExp = 0;
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double shiftedCost = labelCosts[lPrev] - maxMessage;
-                    if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
-                        sumExp += exp(shiftedCost);
+                for (int l = 0; l < _numLabels; ++l)
+                    sumExp += exp(logMarg[l] - maxMarg);
+                logSumExp = maxMarg + log(sumExp);
+                for (int l = 0; l < _numLabels; ++l) {
+                    double grad_jl = -exp(logMarg[l] - logSumExp);
+                    assert(0 <= -grad_jl && -grad_jl <= 1.0);
+                    gradient[(baseIdx + j*stride)*_numLabels + l] = grad_jl;
+                    if (diagHessian)
+                        diagHessian[(baseIdx + j*stride)*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
                 }
-                m_L[j*_numLabels+lCurr] = lambdaSlice[j*_numLabels+lCurr]*smoothingMult + maxMessage + log(sumExp);
             }
+            objective_i += -smoothing*logSumExp;
+        });
+        {
+            std::unique_lock<std::mutex> l(objectiveMutex);
+            objective += objective_i;
         }
-
-        // Compute log m_R
-        for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-            m_R[(width-1)*_numLabels+lCurr] = 0.0;
-            currLabels[lCurr] = _getLabel(baseIdx+(width-1)*stride, lCurr);
-        }
-        for (int j = width-2; j >= 0; --j) {
-            int idx = baseIdx+j*stride;
-            std::swap(currLabels, prevLabels);
-            for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-                currLabels[lCurr] = _getLabel(idx, lCurr);
-                double maxMessage = std::numeric_limits<double>::lowest();
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    labelCosts[lPrev] = -(_edgeFn(currLabels[lCurr], prevLabels[lPrev]) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
-                    maxMessage = std::max(maxMessage, labelCosts[lPrev]);
-                }
-                double sumExp = 0;
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    double shiftedCost = labelCosts[lPrev] - maxMessage;
-                    if (shiftedCost >= logEpsilon) // Don't take exp if result will be less than 1e-18
-                        sumExp += exp(shiftedCost);
-                }
-                m_R[j*_numLabels+lCurr] = maxMessage + log(sumExp);
-            }
-        }
-
-        // Compute marginals, put them in G
-        double logSumExp = 0;
-        for (int j = 0; j < width; ++j) {
-            double maxMarg = std::numeric_limits<double>::lowest();
-            for (int l = 0; l < _numLabels; ++l) {
-                logMarg[l] = m_L[j*_numLabels+l] + m_R[j*_numLabels+l];
-                maxMarg = std::max(maxMarg, logMarg[l]);
-            }
-            double sumExp = 0;
-            for (int l = 0; l < _numLabels; ++l)
-                sumExp += exp(logMarg[l] - maxMarg);
-            logSumExp = maxMarg + log(sumExp);
-            for (int l = 0; l < _numLabels; ++l) {
-                double grad_jl = -exp(logMarg[l] - logSumExp);
-                assert(0 <= -grad_jl && -grad_jl <= 1.0);
-                gradient[(baseIdx + j*stride)*_numLabels + l] = grad_jl;
-                if (diagHessian)
-                    diagHessian[(baseIdx + j*stride)*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
-            }
-        }
-        objective += -smoothing*logSumExp;
-    }
+    });
     return objective;
 }
 

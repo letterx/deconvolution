@@ -63,9 +63,9 @@ struct ArrayForEach {
         const int currDim = order[Level];
         const int stride = strides[currDim];
         for (int i = 0; i < extents[currDim]; ++i) {
-            baseIdx += stride;
             ArrayForEach<D, Level+1> ForEach {};
             ForEach.forEach(order, extents, strides, baseIdx, f);
+            baseIdx += stride;
         }
     }
 };
@@ -89,12 +89,12 @@ void arrayForEachTail(const IdxArray<D>& order, const IdxArray<D>& extents, cons
 }
 
 
-template <typename T, int D>
-std::array<T, D> bringToFront(const std::array<T, D>& a, int idx) {
+template <typename T, unsigned long D>
+std::array<T, D> bringToFront(const std::array<T, D>& a, unsigned long idx) {
     std::array<T, D> ret = a;
     auto iter = std::begin(ret);
     *(iter++) = a[idx];
-    for (int i = 0; i < D; ++i) {
+    for (unsigned long i = 0; i < D; ++i) {
         if (i == idx) continue;
         *(iter++) = a[i];
     }

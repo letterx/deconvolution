@@ -32,6 +32,10 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories("src/iml")
 include_directories("src/alglib")
 
+set(libs
+    tbb
+    )
+
 set(deconvolve-sources
     src/deconvolve.cpp
     src/quadratic-min.cpp
