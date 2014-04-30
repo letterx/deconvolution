@@ -89,12 +89,12 @@ end
 
 deconvolveParams = struct();
 deconvolveParams.progress = @progress;
-deconvolveParams.maxIter = 1;
-deconvolveParams.dataSmoothing = 0.0005;
+deconvolveParams.maxIter = 100;
+deconvolveParams.dataSmoothing = 0.001;
 deconvolveParams.smoothing = 100;
-deconvolveParams.minSmoothing = 12;
-deconvolveParams.smoothWeight = 200;
-deconvolveParams.smoothMax = 1.0;
+deconvolveParams.minSmoothing = 1;
+deconvolveParams.smoothWeight = 10;
+deconvolveParams.smoothMax = 100.0;
 
 fprintf('Begin deconvolveDual\n');
 x = deconvolveDual(H, Ht, m.*RDF, deconvolveParams);

@@ -74,6 +74,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
     mxArray* callbackArray = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
 
+    int hEvaluations = 0;
     LinearSystem<3> H = [&](const Array<3>& x) -> Array<3> {
         mxArray* callbackRhs[] = { const_cast<mxArray*>(mex_H), callbackArray };
         mxArray* callbackLhs[] = { nullptr };
@@ -86,6 +87,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         for (int i = 0; i < size; ++i)
             result.data()[i] = lhsData[i];
         mxDestroyArray(callbackLhs[0]);
+        hEvaluations++;
         return result;
     };
     LinearSystem<3> Ht = [&](const Array<3>& x) -> Array<3> {
@@ -100,9 +102,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         for (int i = 0; i < size; ++i)
             result.data()[i] = lhsData[i];
         mxDestroyArray(callbackLhs[0]);
+        hEvaluations++;
         return result;
     };
-    GridRegularizer<3> R{dims, 9, 4.0, regularizerMax, regularizerWeight};
+    GridRegularizer<3> R{dims, 13, 4.0, regularizerMax, regularizerWeight};
     ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
         mxArray* callbackRhs[] = { 
             const_cast<mxArray*>(mex_progress), 
@@ -134,4 +137,5 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     mexPrintf("Regularizer time: %f\n", stats.regularizerTime);
     mexPrintf("Data time:        %f\n", stats.dataTime);
     mexPrintf("Unary time:       %f\n", stats.unaryTime);
+    mexPrintf("Evaluations of H: %d\n", hEvaluations);
 }
