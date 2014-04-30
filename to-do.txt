@@ -9,3 +9,8 @@ ADMM?
 Better passing of data to MATLAB
 Other optimization algorithms: Optimal algorithm of Nestorov, also log-updates
 Implement convolution in c++ for Mexfile
+
+ADMM where we add augmented lagrangian to the mu_i should work, gets around
+quadratic program on simplex because we can project to nearest point on
+simplex. Need to make sure math works out for possibly-negative mu_i. 
+Work out what MPLP does for this ADMM unary potential. 

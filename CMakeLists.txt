@@ -38,9 +38,10 @@ set(libs
 
 set(deconvolve-sources
     src/deconvolve.cpp
+    src/optimal-grad.cpp
     src/quadratic-min.cpp
     src/regularizer.cpp
-    src/optimal-grad.cpp
+    src/transport.cpp
     )
 
 set(alglib-sources

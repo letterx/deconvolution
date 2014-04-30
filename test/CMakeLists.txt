@@ -1,5 +1,6 @@
 set(test-sources
     test-regularizer.cpp
+    test-transport.cpp
 )
 
 ###
