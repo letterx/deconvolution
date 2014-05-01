@@ -4,6 +4,11 @@
 
 /* Solve a transportation problem with given costs, supply and demand.
  *
+ * min \sum_{i,j} c_{i,j} x_{i,j}
+ * s.t. \sum_j x_{i,j} = s_i
+ *      \sum_i x_{i,j} = d_j
+ *      x_{i,j} <= 0
+ *
  * costs is an array of size sizeSupply*sizeDemand, indexed by edge (i,j) at 
  * entry i*sizeDemand+j
  *
