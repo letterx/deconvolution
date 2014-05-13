@@ -287,16 +287,70 @@ Array<D> Deconvolve(const Array<D>& y,
 }
 
 template <int D>
-void ADMMSubproblemData(DeconvolveParams& params, const LinearSystem<D>& Q,
-        const Array<D>& b, const std::vector<double>& nu, 
+void ADMMSubproblemData(DeconvolveParams& params, 
+        const LinearSystem<D>& Q, const Array<D>& b,
+        const Regularizer<D>& R,
+        const std::vector<double>& nu, 
         std::vector<double>& mu1, const std::vector<double>& mu2) {
+    // Matrix T and vector c are the quadratic and linear terms for the 
+    // quadratic program in the ADMM subproblem
+    int n = b.num_elements();
 
+    std::vector<double> normLi(n);
+    for (int i = 0; i < n; ++i) {
+        for (int l = 0; l < R.numLabels(); ++l) {
+            double label = R.getLabel(i, l);
+            normLi[i] += label*label;
+        }
+    }
+    const LinearSystem<D>& T = [&](const Array<D>& x) -> Array<D> {
+        Array<D> result = Q(x);
+        assert(static_cast<int>(x.num_elements()) == n);
+        for (int i = 0; i < n; ++i)
+            result.data()[i]  += params.admmRho * x.data()[i] / (normLi[i] * 2);
+        return result;
+    };
+
+    std::vector<double> dotMuLi(n);
+    for (int i = 0; i < n; ++i) {
+        dotMuLi[i] = 0;
+        for (int l = 0; l < R.numLabels(); ++l) {
+            int muIdx = i*R.numLabels() + l;
+            double label = R.getLabel(i, l);
+            dotMuLi[i] += (mu2[muIdx] - nu[muIdx])*label;
+        }
+    }
+
+    Array<D> c = b;
+    for (int i = 0; i < n; ++i) {
+        c.data()[i] += dotMuLi[i] / normLi[i];
+    }
+
+    // Initialize x to be current conve combination given by mu1
+    Array<D> x = b;
+    for (int i = 0; i < n; ++i) {
+        x.data()[i] = 0;
+        for (int l = 0; l < R.numLabels(); ++l) 
+            x.data()[i] += mu1[i*R.numLabels() + l] * R.getLabel(i, l);
+    }
+
+    // Solve quadratic system
+    quadraticMinCG<D>(T, c, x);
+
+    for (int i = 0; i < n; ++i) {
+        double liCoeff = (dotMuLi[i]/params.admmRho - x.data()[i]) / normLi[i];
+        for (int l = 0; l < R.numLabels(); ++l) {
+            int muIdx = i*R.numLabels() + l;
+            mu1[muIdx] -= nu[muIdx]/params.admmRho + liCoeff * R.getLabel(i, l);
+        }
+    }
 }
 
 template <int D>
-void ADMMSubproblemReg(DeconvolveParams& params, Regularizer<D>& R,
+void ADMMSubproblemReg(DeconvolveParams& params, 
+        Regularizer<D>& R,
         const std::vector<double>& nu, 
-        std::vector<double>& mu1, const std::vector<double>& mu2) {
+        const std::vector<double>& mu1, std::vector<double>& mu2) {
 
 }
 
@@ -339,7 +393,7 @@ Array<D> DeconvolveADMM(const Array<D>& y,
 
     double resNorm = std::numeric_limits<double>::max();
     while (resNorm > params.admmConvergenceNorm) {
-        ADMMSubproblemData<D>(params, Q, b, nu, mu1, mu2);
+        ADMMSubproblemData<D>(params, Q, b, R, nu, mu1, mu2);
         ADMMSubproblemReg<D>(params, R, nu, mu1, mu2);
         resNorm = 0.0;
         for (int i = 0; i < numMu; ++i) {
