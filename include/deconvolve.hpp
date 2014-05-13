@@ -21,6 +21,8 @@ struct DeconvolveParams {
     double smoothing {100.0};
     double minSmoothing { 10.0 };
     int maxIterations { 1000 };
+    double admmRho { 1.0 };
+    double admmConvergenceNorm { 1.0 };
 };
 
 struct DeconvolveStats {

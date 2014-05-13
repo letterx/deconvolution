@@ -22,3 +22,7 @@ release/
 *.swo
 *.swp
 .DS_Store
+
+
+# Added
+.ycm_extra_conf*

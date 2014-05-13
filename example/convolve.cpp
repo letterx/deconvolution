@@ -67,16 +67,17 @@ fftw_complex* fftwOut2 = 0;
 fftw_plan fftwForward1;
 fftw_plan fftwForward2;
 fftw_plan fftwInverse;
-std::vector<int> fftwShape;
+typedef deconvolution::Array<2> A;
+typedef A::size_type size_type;
+std::vector<size_type> fftwShape;
 
 deconvolution::Array<2> convolveFFT(const deconvolution::Array<2>& im, const deconvolution::Array<2>& ker) {
     // Make sure that (0,0) contained in kernel, otherwise things get wonky
     assert(ker.index_bases()[0] <= 0 && 0 < ker.index_bases()[0] + ker.shape()[0]);
     assert(ker.index_bases()[1] <= 0 && 0 < ker.index_bases()[1] + ker.shape()[1]);
 
-    typedef deconvolution::Array<2> A;
     typedef A::index index;
-    typedef A::size_type size_type;
+
     std::vector<index> padBases = { im.index_bases()[0], im.index_bases()[1] };
     std::vector<size_type> shape = { 
         im.shape()[0] + ker.shape()[0],
@@ -94,9 +95,9 @@ deconvolution::Array<2> convolveFFT(const deconvolution::Array<2>& im, const dec
         fftwForward2 = fftw_plan_dft_r2c_2d(shape[0], shape[1], fftwIn2, fftwOut2, FFTW_ESTIMATE);
         fftwInverse = fftw_plan_dft_c2r_2d(shape[0], shape[1], fftwOut1, fftwIn1, FFTW_ESTIMATE);
 
-        fftwShape = std::vector<int>{shape[0], shape[1]};
+        fftwShape = std::vector<size_type>{shape[0], shape[1]};
     } else {
-        assert(fftwShape[0] == int(shape[0]) && fftwShape[1] == int(shape[1]));
+        assert(fftwShape[0] == shape[0] && fftwShape[1] == shape[1]);
     }
 
 

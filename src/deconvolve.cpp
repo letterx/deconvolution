@@ -286,8 +286,76 @@ Array<D> Deconvolve(const Array<D>& y,
     return x;
 }
 
+template <int D>
+void ADMMSubproblemData(DeconvolveParams& params, const LinearSystem<D>& Q,
+        const Array<D>& b, const std::vector<double>& nu, 
+        std::vector<double>& mu1, const std::vector<double>& mu2) {
+
+}
+
+template <int D>
+void ADMMSubproblemReg(DeconvolveParams& params, Regularizer<D>& R,
+        const std::vector<double>& nu, 
+        std::vector<double>& mu1, const std::vector<double>& mu2) {
+
+}
+
+template <int D>
+Array<D> DeconvolveADMM(const Array<D>& y, 
+        const LinearSystem<D>& H, 
+        const LinearSystem<D>& Ht, 
+        Regularizer<D>& R, 
+        ProgressCallback<D>& pc, 
+        DeconvolveParams& params,
+        DeconvolveStats& stats) {
+    Array<D> b = 2*Ht(y);
+    Array<D> x = b;
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)); };
+    LinearSystem<D> Qreg = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.001*x; };
+    //double constantTerm = dot(y, y);
+    std::function<double(const Array<D>& x)> dataFn = 
+        [&](const Array<D>& x) -> double {
+            auto res = H(x) - y;
+            return dot(res, res);
+        };
+
+
+    const int numXVars = x.num_elements();
+    const int numMu = numXVars*R.numLabels();
+    auto mu1 = std::vector<double>(numMu);
+    auto mu2 = std::vector<double>(numMu);
+    auto nu = std::vector<double>(numMu);
+
+    // Initialize primal variables to uniform probability on each label
+    const double recipNumLabels = 1.0/R.numLabels();
+    for (int i = 0; i < numMu; ++i) {
+        mu1[i] = mu2[i] = recipNumLabels;
+        nu[i] = 0;
+    }
+
+    std::cout << "Finding least-squares fit\n";
+    quadraticMinCG<D>(Qreg, b, x);
+    R.sampleLabels(x, 0.5);
+
+    double resNorm = std::numeric_limits<double>::max();
+    while (resNorm > params.admmConvergenceNorm) {
+        ADMMSubproblemData<D>(params, Q, b, nu, mu1, mu2);
+        ADMMSubproblemReg<D>(params, R, nu, mu1, mu2);
+        resNorm = 0.0;
+        for (int i = 0; i < numMu; ++i) {
+            auto res = mu1[i] - mu2[i];
+            nu[i] += params.admmRho*res;
+            resNorm += res*res;
+        }
+    }
+    return x;
+}
+
+
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s);
+    template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s); \
+    template Array<d> DeconvolveADMM<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s);
+
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
 INSTANTIATE_DECONVOLVE(3)

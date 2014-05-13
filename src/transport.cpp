@@ -273,10 +273,13 @@ void solveTransport(int sizeSupply, int sizeDemand, const T* costs,
         graph.addTreeEdge(minI, minJ);
     }
 
-    for (auto s : resSupply)
+#ifndef NDEBUG
+    for (auto s : resSupply) {
         assert(s == 0);
+    }
     for (auto d : resDemand)
         assert(d == 0);
+#endif
 
     while (true) {
         graph.updatePotentials(costs);
