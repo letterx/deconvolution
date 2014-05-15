@@ -527,7 +527,8 @@ Array<D> DeconvolveADMM(const Array<D>& y,
 
 #define INSTANTIATE_DECONVOLVE(d) \
     template Array<d> Deconvolve<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s); \
-    template Array<d> DeconvolveADMM<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s);
+    template Array<d> DeconvolveADMM<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s); \
+    template class AdmmRegularizerLbfgs<d>;
 
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
