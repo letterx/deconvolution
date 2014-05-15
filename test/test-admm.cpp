@@ -166,6 +166,11 @@ BOOST_AUTO_TEST_SUITE(AdmmTests)
         minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
         BOOST_CHECK_EQUAL(lbfgsReport.terminationtype, 4);
 
+        std::vector<double> expectedX = { -1.5, 1.5, 1.5, -1.5 };
+
+        for (int i = 0; i < 4; ++i)
+            BOOST_CHECK_CLOSE(lbfgsX[i], expectedX[i], 1.0e-6);
+
     }
 
 BOOST_AUTO_TEST_SUITE_END()
