@@ -9,6 +9,7 @@
 #include "regularizer.hpp"
 #include "optimal-grad.hpp"
 #include "project-simplex.hpp"
+#include "admm.hpp"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wignored-qualifiers"
@@ -305,14 +306,14 @@ void ADMMSubproblemData(DeconvolveParams& params,
         }
     }
 
-    // dotMuNuLi is (mu_i - nu_i)^T l_i for each i
+    // dotMuNuLi is (mu_i - nu_i/rho)^T l_i for each i
     std::vector<double> dotMuNuLi(n);
     for (int i = 0; i < n; ++i) {
         dotMuNuLi[i] = 0;
         for (int l = 0; l < R.numLabels(); ++l) {
             int muIdx = i*R.numLabels() + l;
             double label = R.getLabel(i, l);
-            dotMuNuLi[i] += (mu2[muIdx] - nu[muIdx])*label;
+            dotMuNuLi[i] += (mu2[muIdx] - nu[muIdx]/params.admmRho)*label;
         }
     }
 
@@ -326,7 +327,7 @@ void ADMMSubproblemData(DeconvolveParams& params,
 
     Array<D> c = b;
     for (int i = 0; i < n; ++i) {
-        c.data()[i] += dotMuNuLi[i] / norm2Li[i];
+        c.data()[i] += params.admmRho * dotMuNuLi[i] / norm2Li[i];
     }
 
     // Initialize x to be current convex combination given by mu1
@@ -337,84 +338,23 @@ void ADMMSubproblemData(DeconvolveParams& params,
             x.data()[i] += mu1[i*R.numLabels() + l] * R.getLabel(i, l);
     }
 
+    std::cout << "Initial convex combination\n";
+    pc(x, 0, 0, 0, 0);
+
     // Solve quadratic system
     quadraticMinCG<D>(T, c, x);
+
+    std::cout << "Data subproblem result\n";
     pc(x, 0, 0, 0, 0);
 
     for (int i = 0; i < n; ++i) {
-        double liCoeff = (dotMuNuLi[i]/params.admmRho - x.data()[i]) / norm2Li[i];
+        double liCoeff = (dotMuNuLi[i] - x.data()[i]) / norm2Li[i];
         for (int l = 0; l < R.numLabels(); ++l) {
             int muIdx = i*R.numLabels() + l;
             mu1[muIdx] -= nu[muIdx]/params.admmRho + liCoeff * R.getLabel(i, l);
         }
     }
 }
-
-template <int D>
-class AdmmRegularizerLbfgs {
-    public:
-        AdmmRegularizerLbfgs(int n, Regularizer<D>* R, DeconvolveParams* params,
-                real_1d_array* hessianDiagArray, minlbfgsstate* lbfgsState,
-                const double* mu1, const double* nu)
-            : _numXVars(n)
-            , _R(R)
-            , _params(params)
-            , _hessianDiagArray(hessianDiagArray)
-            , _lbfgsState(lbfgsState)
-            , _mu1(mu1)
-            , _nu(nu)
-            { }
-
-        static void evaluate(
-            const real_1d_array& lbfgsX,
-            double& objective,
-            real_1d_array& lbfgsGrad,
-            void* instance) 
-        {
-            auto data = static_cast<AdmmRegularizerLbfgs*>(instance);
-            double* hessianDiag = data->_hessianDiagArray->getcontent();
-            objective = data->_evaluate(
-                    lbfgsX.getcontent(), 
-                    lbfgsGrad.getcontent(),
-                    hessianDiag);
-            for (int i = 0; i < data->_numXVars; ++i) {
-                (*data->_hessianDiagArray)[i] = std::max(hessianDiag[i], 1e-7);
-            }
-            //FIXME
-            //minlbfgssetprecdiag(*data->_lbfgsState, *data->_hessianDiagArray);
-            for (int i = 0; i < data->_numXVars; ++i)
-                lbfgsGrad[i] = -lbfgsGrad[i];
-            objective = -objective;
-        }
-
-        static void progress(
-            const real_1d_array& lbfgsX,
-            double fx,
-            void *instance) 
-        {
-            static_cast<AdmmRegularizerLbfgs*>(instance)->_progress(
-                    lbfgsX.getcontent(), fx);
-        }
-
-    private:
-        double _evaluate(const double* lambda, 
-                double* grad,
-                double* hessianDiag);
-        double _evaluateUnary(int i, 
-                const double* lambda,
-                double* grad,
-                double* hessianDiag);
-        void _progress(const double* lambda, double fx);
-
-        int _numXVars;
-        Regularizer<D>* _R;
-        DeconvolveParams* _params;
-        real_1d_array* _hessianDiagArray;
-        minlbfgsstate* _lbfgsState;
-        const double* _mu1;
-        const double* _nu;
-        int _iter = 0;
-};
 
 template <int D>
 double AdmmRegularizerLbfgs<D>::_evaluate(const double* lambda, double* grad,
@@ -425,16 +365,19 @@ double AdmmRegularizerLbfgs<D>::_evaluate(const double* lambda, double* grad,
         grad[i] = hessianDiag[i] = 0;
     }
 
-    for (int i = 0; i < _numXVars; ++i) {
-        obj += _evaluateUnary(i, lambda, grad, hessianDiag);
-    }
-
     const int varsPerSubproblem = _numXVars*_R->numLabels();
     for (int alpha = 0; alpha < _R->numSubproblems(); ++alpha) {
         int offset = alpha*varsPerSubproblem;
         obj += _R->evaluate(alpha, lambda+offset, _params->smoothing,
                 grad+offset, hessianDiag+offset);
     }
+
+
+    for (int i = 0; i < _numXVars; ++i) {
+        obj += _evaluateUnary(i, lambda, grad, hessianDiag);
+    }
+
+    std::cout << "\tADMM regularizer evaluate: " << obj << "\n";
 
     return obj;
 }
@@ -457,7 +400,7 @@ double AdmmRegularizerLbfgs<D>::_evaluateUnary(int i,
     }
 
     const double* mu1_i = _mu1 + i*numLabels;
-    const double* nu_i = _mu1 + i*numLabels;
+    const double* nu_i = _nu + i*numLabels;
     for (int l = 0; l < L; ++l) {
         modifiedMu[l] = mu1_i[l] - (nu_i[l] - lambda_i[l])/rho;
     }
@@ -514,6 +457,8 @@ void ADMMSubproblemReg(DeconvolveParams& params,
     minlbfgsoptimize(lbfgsState, AdmmRegularizerLbfgs<D>::evaluate,
             AdmmRegularizerLbfgs<D>::progress, &algData);
     minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
+    std::cout << "LBFGS Finished with code: " << lbfgsReport.terminationtype 
+        << "\n";
 }
 
 template <int D>

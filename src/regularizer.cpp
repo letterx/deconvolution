@@ -39,6 +39,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     order = bringToFront(order, subproblem);
 
     tbb::parallel_for(size_t(0), size_t(extents[order[1]]), [&](size_t i) {
+    //for (size_t i = 0; i < size_t(extents[order[1]]); ++i) {
         int baseIdx = i*strides[order[1]];
         std::vector<double> lambdaSlice(_numLabels*width, 0);
         std::vector<double> m_L(_numLabels*width, 0);
@@ -125,7 +126,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 for (int l = 0; l < _numLabels; ++l) {
                     double grad_jl = -exp(logMarg[l] - logSumExp);
                     assert(0 <= -grad_jl && -grad_jl <= 1.0);
-                    gradient[(baseIdx + j*stride)*_numLabels + l] = grad_jl;
+                    gradient[(baseIdx + j*stride)*_numLabels + l] += grad_jl;
                     if (diagHessian)
                         diagHessian[(baseIdx + j*stride)*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
                 }

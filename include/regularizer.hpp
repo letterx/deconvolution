@@ -63,7 +63,7 @@ class GridRegularizer : public Regularizer<D> {
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
         virtual double primal(const double* x) const override;
         virtual void sampleLabels(const Array<D>& x, double scale) override;
-    private:
+    protected:
         std::vector<int> _extents;
         int _numLabels;
         double _labelScale;
@@ -71,6 +71,29 @@ class GridRegularizer : public Regularizer<D> {
         double _smoothMax;
         double _smoothWeight;
 };
+
+template <int D>
+class GridRangeRegularizer : public GridRegularizer<D> {
+    public:
+        GridRangeRegularizer(const std::vector<int>& extents,
+                int numLabels,
+                double labelScale,
+                double smoothMax,
+                double smoothWeight, 
+                double maxLabel)
+            : GridRegularizer<D>(extents, numLabels, labelScale, smoothMax, smoothWeight)
+            , _maxLabel(maxLabel)
+        { }
+
+        virtual void sampleLabels(const Array<D>& x, double scale) override { }
+        virtual double getLabel(int var, int l) const override {
+            return _maxLabel*(static_cast<double>(l)/static_cast<double>(this->_numLabels));
+        }
+
+    protected:
+        double _maxLabel;
+};
+
 }
 
 

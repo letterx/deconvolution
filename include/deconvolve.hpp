@@ -18,10 +18,10 @@ template <int D> class Regularizer;
 
 struct DeconvolveParams {
     double dataSmoothing {0.03};
-    double smoothing {100.0};
+    double smoothing {0.001};
     double minSmoothing { 10.0 };
     int maxIterations { 1000 };
-    double admmRho { 10000.0 };
+    double admmRho { 10.0 };
     double admmConvergenceNorm { 1.0 };
 };
 
@@ -46,5 +46,7 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 template <int D>
 Array<D> DeconvolveADMM(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveParams& params, DeconvolveStats& s);
 }
+
+
 
 #endif

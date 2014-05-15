@@ -27,6 +27,8 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
         std::vector<double> gradient = {0.0, 0.0};
 
         for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+            gradient[0] = 0.0;
+            gradient[1] = 0.0;
             auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
 
             BOOST_CHECK_CLOSE(result, -1.0-t*log(2), epsilon);
@@ -37,6 +39,8 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
         lambda[1] = 0.0;
         
         for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+            gradient[0] = 0.0;
+            gradient[1] = 0.0;
             auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
 
             BOOST_CHECK_CLOSE(result, -1.0-t*log(1+exp(-1.0/t)), epsilon);

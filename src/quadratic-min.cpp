@@ -38,7 +38,7 @@ static double quadraticEvaluate(
     return xQx - bx;
 }
 
-static int quadraticProgress(
+int quadraticProgress(
         void *instance,
         const double *x,
         const double *g,
@@ -171,7 +171,6 @@ double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) 
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template double quadraticMin<d>(const LinearSystem<d>& Q, const Array<d>& b, Array<d>& x); \
     template double quadraticMinCG<d>(const LinearSystem<d>& Q, const Array<d>& b, Array<d>& x);
 
 INSTANTIATE_DECONVOLVE(1)

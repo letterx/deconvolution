@@ -12,8 +12,10 @@ namespace deconvolution {
  *
  * Note: x is also the solution to 2Qx = b
  */
-template <int D>
-double quadraticMin(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x);
+/*
+ *template <int D>
+ *double quadraticMin(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x);
+ */
 template <int D>
 double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x);
 }
