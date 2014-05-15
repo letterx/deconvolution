@@ -165,7 +165,7 @@ double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) 
 
     auto retCode = CG(M, X, B, P, maxIter, tol);
     if (retCode)
-        std::cout << "*** GC reached maxIter --- residual: " << tol << "***\n";
+        std::cout << "*** CG reached maxIter --- residual: " << tol << "***\n";
     x = X.data();
     return dot(x, Q(x)) - dot(b, x);
 }

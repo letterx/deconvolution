@@ -21,7 +21,7 @@ struct DeconvolveParams {
     double smoothing {100.0};
     double minSmoothing { 10.0 };
     int maxIterations { 1000 };
-    double admmRho { 1.0 };
+    double admmRho { 10000.0 };
     double admmConvergenceNorm { 1.0 };
 };
 
@@ -43,6 +43,8 @@ using ProgressCallback = std::function<void(const Array<D>& x, double dual, doub
 template <int D>
 Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveParams& params, DeconvolveStats& s);
 
+template <int D>
+Array<D> DeconvolveADMM(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveParams& params, DeconvolveStats& s);
 }
 
 #endif

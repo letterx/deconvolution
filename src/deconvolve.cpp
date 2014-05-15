@@ -1,12 +1,14 @@
 #include "deconvolve.hpp"
-#include "quadratic-min.hpp"
-#include "util.hpp"
-#include "regularizer.hpp"
-#include "optimal-grad.hpp"
 #include <limits>
 #include <iostream>
 #include <chrono>
 #include <random>
+
+#include "quadratic-min.hpp"
+#include "util.hpp"
+#include "regularizer.hpp"
+#include "optimal-grad.hpp"
+#include "project-simplex.hpp"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wignored-qualifiers"
@@ -279,10 +281,6 @@ Array<D> Deconvolve(const Array<D>& y,
         std::cout << "*** Resampling ***\n";
         R.sampleLabels(x, 1.0/((samplingIter+1)*(samplingIter+1)));
     }
-
-    
-    //auto retCode = optimalGradDescent(numDualVars, dualVars.get(), &fVal, deconvolveEvaluate<D>, deconvolveProgress<D>, &algData);
-
     return x;
 }
 
@@ -291,42 +289,47 @@ void ADMMSubproblemData(DeconvolveParams& params,
         const LinearSystem<D>& Q, const Array<D>& b,
         const Regularizer<D>& R,
         const std::vector<double>& nu, 
-        std::vector<double>& mu1, const std::vector<double>& mu2) {
+        std::vector<double>& mu1, const std::vector<double>& mu2,
+        ProgressCallback<D>& pc) {
     // Matrix T and vector c are the quadratic and linear terms for the 
     // quadratic program in the ADMM subproblem
     int n = b.num_elements();
 
-    std::vector<double> normLi(n);
+    // Two quantities we'll need:
+    // norm2Li is the squared norm of the label vector l_i for each variable
+    std::vector<double> norm2Li(n);
     for (int i = 0; i < n; ++i) {
         for (int l = 0; l < R.numLabels(); ++l) {
             double label = R.getLabel(i, l);
-            normLi[i] += label*label;
+            norm2Li[i] += label*label;
         }
     }
+
+    // dotMuNuLi is (mu_i - nu_i)^T l_i for each i
+    std::vector<double> dotMuNuLi(n);
+    for (int i = 0; i < n; ++i) {
+        dotMuNuLi[i] = 0;
+        for (int l = 0; l < R.numLabels(); ++l) {
+            int muIdx = i*R.numLabels() + l;
+            double label = R.getLabel(i, l);
+            dotMuNuLi[i] += (mu2[muIdx] - nu[muIdx])*label;
+        }
+    }
+
     const LinearSystem<D>& T = [&](const Array<D>& x) -> Array<D> {
         Array<D> result = Q(x);
         assert(static_cast<int>(x.num_elements()) == n);
         for (int i = 0; i < n; ++i)
-            result.data()[i]  += params.admmRho * x.data()[i] / (normLi[i] * 2);
+            result.data()[i]  += params.admmRho * x.data()[i] / (norm2Li[i] * 2);
         return result;
     };
 
-    std::vector<double> dotMuLi(n);
-    for (int i = 0; i < n; ++i) {
-        dotMuLi[i] = 0;
-        for (int l = 0; l < R.numLabels(); ++l) {
-            int muIdx = i*R.numLabels() + l;
-            double label = R.getLabel(i, l);
-            dotMuLi[i] += (mu2[muIdx] - nu[muIdx])*label;
-        }
-    }
-
     Array<D> c = b;
     for (int i = 0; i < n; ++i) {
-        c.data()[i] += dotMuLi[i] / normLi[i];
+        c.data()[i] += dotMuNuLi[i] / norm2Li[i];
     }
 
-    // Initialize x to be current conve combination given by mu1
+    // Initialize x to be current convex combination given by mu1
     Array<D> x = b;
     for (int i = 0; i < n; ++i) {
         x.data()[i] = 0;
@@ -336,9 +339,10 @@ void ADMMSubproblemData(DeconvolveParams& params,
 
     // Solve quadratic system
     quadraticMinCG<D>(T, c, x);
+    pc(x, 0, 0, 0, 0);
 
     for (int i = 0; i < n; ++i) {
-        double liCoeff = (dotMuLi[i]/params.admmRho - x.data()[i]) / normLi[i];
+        double liCoeff = (dotMuNuLi[i]/params.admmRho - x.data()[i]) / norm2Li[i];
         for (int l = 0; l < R.numLabels(); ++l) {
             int muIdx = i*R.numLabels() + l;
             mu1[muIdx] -= nu[muIdx]/params.admmRho + liCoeff * R.getLabel(i, l);
@@ -347,11 +351,169 @@ void ADMMSubproblemData(DeconvolveParams& params,
 }
 
 template <int D>
+class AdmmRegularizerLbfgs {
+    public:
+        AdmmRegularizerLbfgs(int n, Regularizer<D>* R, DeconvolveParams* params,
+                real_1d_array* hessianDiagArray, minlbfgsstate* lbfgsState,
+                const double* mu1, const double* nu)
+            : _numXVars(n)
+            , _R(R)
+            , _params(params)
+            , _hessianDiagArray(hessianDiagArray)
+            , _lbfgsState(lbfgsState)
+            , _mu1(mu1)
+            , _nu(nu)
+            { }
+
+        static void evaluate(
+            const real_1d_array& lbfgsX,
+            double& objective,
+            real_1d_array& lbfgsGrad,
+            void* instance) 
+        {
+            auto data = static_cast<AdmmRegularizerLbfgs*>(instance);
+            double* hessianDiag = data->_hessianDiagArray->getcontent();
+            objective = data->_evaluate(
+                    lbfgsX.getcontent(), 
+                    lbfgsGrad.getcontent(),
+                    hessianDiag);
+            for (int i = 0; i < data->_numXVars; ++i) {
+                (*data->_hessianDiagArray)[i] = std::max(hessianDiag[i], 1e-7);
+            }
+            //FIXME
+            //minlbfgssetprecdiag(*data->_lbfgsState, *data->_hessianDiagArray);
+            for (int i = 0; i < data->_numXVars; ++i)
+                lbfgsGrad[i] = -lbfgsGrad[i];
+            objective = -objective;
+        }
+
+        static void progress(
+            const real_1d_array& lbfgsX,
+            double fx,
+            void *instance) 
+        {
+            static_cast<AdmmRegularizerLbfgs*>(instance)->_progress(
+                    lbfgsX.getcontent(), fx);
+        }
+
+    private:
+        double _evaluate(const double* lambda, 
+                double* grad,
+                double* hessianDiag);
+        double _evaluateUnary(int i, 
+                const double* lambda,
+                double* grad,
+                double* hessianDiag);
+        void _progress(const double* lambda, double fx);
+
+        int _numXVars;
+        Regularizer<D>* _R;
+        DeconvolveParams* _params;
+        real_1d_array* _hessianDiagArray;
+        minlbfgsstate* _lbfgsState;
+        const double* _mu1;
+        const double* _nu;
+        int _iter = 0;
+};
+
+template <int D>
+double AdmmRegularizerLbfgs<D>::_evaluate(const double* lambda, double* grad,
+        double* hessianDiag) {
+    double obj = 0;
+
+    for (int i = 0; i < _numXVars*_R->numLabels(); ++i) {
+        grad[i] = hessianDiag[i] = 0;
+    }
+
+    for (int i = 0; i < _numXVars; ++i) {
+        obj += _evaluateUnary(i, lambda, grad, hessianDiag);
+    }
+
+    const int varsPerSubproblem = _numXVars*_R->numLabels();
+    for (int alpha = 0; alpha < _R->numSubproblems(); ++alpha) {
+        int offset = alpha*varsPerSubproblem;
+        obj += _R->evaluate(alpha, lambda+offset, _params->smoothing,
+                grad+offset, hessianDiag+offset);
+    }
+
+    return obj;
+}
+
+template <int D>
+double AdmmRegularizerLbfgs<D>::_evaluateUnary(int i,
+        const double* lambda, double* grad, double* hessianDiag) {
+    int L = _R->numLabels();
+    const auto rho = _params->admmRho;
+    const int numLabels = _R->numLabels();
+    const int numPerSubproblem = _numXVars*numLabels;
+
+    std::vector<double> modifiedMu(L);
+    std::vector<double> lambda_i(L);
+
+    for (int l = 0; l < L; ++l) {
+        lambda_i[l] = 0;
+        for (int alpha = 0; alpha < _R->numSubproblems(); ++alpha)
+            lambda_i[l] += lambda[alpha*numPerSubproblem + i*numLabels + l];
+    }
+
+    const double* mu1_i = _mu1 + i*numLabels;
+    const double* nu_i = _mu1 + i*numLabels;
+    for (int l = 0; l < L; ++l) {
+        modifiedMu[l] = mu1_i[l] - (nu_i[l] - lambda_i[l])/rho;
+    }
+
+    std::vector<double> mu2_i;
+    projectSimplex(modifiedMu, mu2_i);
+
+    double obj = 0;
+    for (int l = 0; l < L; ++l) {
+        double res = mu1_i[l] - mu2_i[l];
+        obj += 0.5*rho*res*res + res*nu_i[l] + mu2_i[l]*lambda_i[l];
+    }
+    for (int l = 0; l < L; ++l) {
+        for (int alpha = 0; alpha < _R->numSubproblems(); ++alpha) {
+            int idx = alpha*numPerSubproblem + i*numLabels + l;
+            grad[idx] += mu2_i[l];
+            hessianDiag[idx] += 1.0/rho;
+        }
+    }
+    return obj;
+}
+
+template <int D>
+void AdmmRegularizerLbfgs<D>::_progress(const double* lambda, double fx) {
+    std::cout << "Iteration: " << _iter << "\t" << fx << "\n";
+    _iter++;
+}
+
+template <int D>
 void ADMMSubproblemReg(DeconvolveParams& params, 
         Regularizer<D>& R,
         const std::vector<double>& nu, 
-        const std::vector<double>& mu1, std::vector<double>& mu2) {
+        const std::vector<double>& mu1, std::vector<double>& mu2,
+        std::vector<double>& lambda) {
+    real_1d_array lbfgsX;
+    lbfgsX.setcontent(lambda.size(), lambda.data());
 
+    real_1d_array hessianDiag;
+    hessianDiag.setlength(lambda.size());
+
+    minlbfgsstate lbfgsState;
+    minlbfgsreport lbfgsReport;
+
+    minlbfgscreate(10, lbfgsX, lbfgsState);
+    minlbfgssetxrep(lbfgsState, true);
+
+    const int n = nu.size()/R.numLabels();
+
+    auto algData = AdmmRegularizerLbfgs<D>{n, &R, &params, &hessianDiag, 
+        &lbfgsState, mu1.data(), nu.data()};
+
+    minlbfgssetcond(lbfgsState, 1.0, 0.000001, 0, params.maxIterations);
+    minlbfgsrestartfrom(lbfgsState, lbfgsX);
+    minlbfgsoptimize(lbfgsState, AdmmRegularizerLbfgs<D>::evaluate,
+            AdmmRegularizerLbfgs<D>::progress, &algData);
+    minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
 }
 
 template <int D>
@@ -365,7 +527,7 @@ Array<D> DeconvolveADMM(const Array<D>& y,
     Array<D> b = 2*Ht(y);
     Array<D> x = b;
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)); };
-    LinearSystem<D> Qreg = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.001*x; };
+    LinearSystem<D> Qreg = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
     //double constantTerm = dot(y, y);
     std::function<double(const Array<D>& x)> dataFn = 
         [&](const Array<D>& x) -> double {
@@ -376,9 +538,11 @@ Array<D> DeconvolveADMM(const Array<D>& y,
 
     const int numXVars = x.num_elements();
     const int numMu = numXVars*R.numLabels();
+    const int numLambda = numXVars*R.numLabels()*R.numSubproblems();
     auto mu1 = std::vector<double>(numMu);
     auto mu2 = std::vector<double>(numMu);
     auto nu = std::vector<double>(numMu);
+    std::vector<double> lambda(numLambda);
 
     // Initialize primal variables to uniform probability on each label
     const double recipNumLabels = 1.0/R.numLabels();
@@ -390,11 +554,21 @@ Array<D> DeconvolveADMM(const Array<D>& y,
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Qreg, b, x);
     R.sampleLabels(x, 0.5);
+    
+    int admmIter = 0;
 
     double resNorm = std::numeric_limits<double>::max();
     while (resNorm > params.admmConvergenceNorm) {
-        ADMMSubproblemData<D>(params, Q, b, R, nu, mu1, mu2);
-        ADMMSubproblemReg<D>(params, R, nu, mu1, mu2);
+        std::cout << "ADMM Iteration: " << admmIter << "\n";
+        admmIter++;
+
+        std::cout << "\tData Subproblem\n";
+        ADMMSubproblemData<D>(params, Q, b, R, nu, mu1, mu2, pc);
+
+        std::cout << "\tRegularizer Subproblem\n";
+        ADMMSubproblemReg<D>(params, R, nu, mu1, mu2, lambda);
+
+        std::cout << "\tUpdating dual vars\n";
         resNorm = 0.0;
         for (int i = 0; i < numMu; ++i) {
             auto res = mu1[i] - mu2[i];
