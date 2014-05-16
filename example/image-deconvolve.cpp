@@ -8,6 +8,7 @@
 #include "deconvolve.hpp"
 #include "regularizer.hpp"
 #include "convolve.hpp"
+#include "psnr.hpp"
 
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
@@ -52,6 +53,8 @@ int main(int argc, char **argv) {
         std::cout << "Could not load image: " << infilename << "\n";
         exit(-1);
     }
+
+    cv::Mat orig = image.clone();
 
     auto width = image.cols;
     auto height = image.rows;
@@ -126,6 +129,10 @@ int main(int argc, char **argv) {
                     image.at<unsigned char>(j,i) = x[i][j];
                 }
             }
+
+            auto p = psnrMse(image, orig);
+
+            std::cout << "\tPSNR: " << p.first << "\n";
 
             cv::imshow("Display Window", image);
             cv::waitKey(1);
