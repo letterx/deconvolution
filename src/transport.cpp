@@ -7,6 +7,8 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 
+#include "union-find.hpp"
+
 template <typename T>
 class TransportGraph {
     public:
@@ -238,7 +240,7 @@ double solveTransport(int sizeSupply, int sizeDemand, const T* costs,
     T sumDemand = 0;
     for (int j = 0; j < sizeDemand; ++j)
         sumDemand += demand[j];
-    assert(sumSupply == sumDemand);
+    assert(fabs(sumSupply - sumDemand) < 1e-5);
 
     for (int k = 0; k < sizeSupply*sizeDemand; ++k)
         flow[k] = 0;
@@ -248,7 +250,9 @@ double solveTransport(int sizeSupply, int sizeDemand, const T* costs,
 
     TransportGraph<T> graph{sizeSupply, sizeDemand};
 
+
     int numNodes = sizeSupply+sizeDemand;
+    auto uf = UnionFind{numNodes};
     for (int k = 0; k < numNodes-1; ++k) {
         T minCost = std::numeric_limits<T>::max();
         int minI = 0;
@@ -256,8 +260,12 @@ double solveTransport(int sizeSupply, int sizeDemand, const T* costs,
         for (int i = 0; i < sizeSupply; ++i) {
             if (resSupply.at(i) <= 0)
                 continue;
+            auto comp_i = uf.Find(i);
             for (int j = 0; j < sizeDemand; ++j) {
                 if (resDemand.at(j) <= 0)
+                    continue;
+                auto comp_j = uf.Find(j+sizeSupply);
+                if (comp_i == comp_j)
                     continue;
                 if (costs[i*sizeDemand+j] < minCost) {
                     minCost = costs[i*sizeDemand+j];
@@ -266,19 +274,36 @@ double solveTransport(int sizeSupply, int sizeDemand, const T* costs,
                 }
             }
         }
+        if (minCost == std::numeric_limits<T>::max())
+            break;
+        assert(uf.Find(minI) != uf.Find(minJ+sizeSupply));
         T f = std::min(resSupply.at(minI), resDemand.at(minJ));
         resSupply.at(minI) -= f;
         resDemand.at(minJ) -= f;
         flow[minI*sizeDemand+minJ] += f;
         graph.addTreeEdge(minI, minJ);
+        uf.Merge(minI, minJ+sizeSupply);
+    }
+    // Add any unconnected components to connect to 0 
+    for (int i = 0; i < sizeSupply; ++i) {
+        if (uf.Find(i) != uf.Find(0+sizeSupply)) {
+            graph.addTreeEdge(i, 0);
+            uf.Merge(i, 0+sizeSupply);
+        }
+    }
+    for (int j = 0; j < sizeDemand; ++j) {
+        if (uf.Find(0) != uf.Find(j+sizeSupply)) {
+            graph.addTreeEdge(0, j);
+            uf.Merge(0, j+sizeSupply);
+        }
     }
 
 #ifndef NDEBUG
     for (auto s : resSupply) {
-        assert(s == 0);
+        assert(fabs(s) < 1e-5);
     }
     for (auto d : resDemand)
-        assert(d == 0);
+        assert(fabs(d) < 1e-5);
 #endif
 
     while (true) {

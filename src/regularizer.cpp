@@ -2,8 +2,9 @@
 #include <iostream>
 #include <cfloat>
 #include <mutex>
-#include "util.hpp"
 #include "tbb/tbb.h"
+#include "util.hpp"
+#include "transport.hpp"
 
 namespace deconvolution {
 
@@ -160,6 +161,44 @@ double GridRegularizer<D>::primal(const double* x) const {
             int stride = X.strides()[subproblem];
             for (int i = 0; i < width-1; ++i) {
                 objective += _edgeFn(x[baseIdx+i*stride], x[baseIdx+(i+1)*stride]);
+            }
+        }
+    }
+    return objective;
+}
+
+template <int D>
+double GridRegularizer<D>::fractionalPrimal(const std::vector<double>& primalMu_i) const {
+    double objective = 0;
+    // use X array just to compute strides consistently with other functions
+    const auto X = boost::const_multi_array_ref<double, D>{nullptr, _extents};
+
+    std::vector<double> costs(_numLabels*_numLabels);
+    std::vector<double> flow(_numLabels*_numLabels);
+
+    for (int subproblem = 0; subproblem < D; ++subproblem) {
+        int width = _extents[subproblem]; // Length along this dimension of the grid
+        std::vector<int> base(D, 0);
+        int numBases = 1;
+        for (int i = 0; i < D; ++i)
+            numBases *= (i == subproblem) ? 1 : _extents[i];
+
+        for (int countBase = 0; countBase < numBases; ++countBase, incrementBase(_extents, subproblem, base)) {
+            int baseIdx = 0;
+            for (int i = 0; i < D; ++i) baseIdx += base[i]*X.strides()[i];
+            int stride = X.strides()[subproblem];
+            for (int i = 0; i < width-1; ++i) {
+                int var1 = baseIdx+i*stride;
+                int var2 = var1 + stride;
+                for (int l1 = 0; l1 < _numLabels; ++l1) {
+                    for (int l2 = 0; l2 < _numLabels; ++l2) {
+                        costs[l1*_numLabels+l2] 
+                            = _edgeFn(getLabel(var1, l1), getLabel(var2, l2));
+                    }
+                }
+                objective += solveTransport(_numLabels, _numLabels, costs.data(),
+                        primalMu_i.data() + var1*_numLabels, primalMu_i.data() + var2*_numLabels, 
+                        flow.data());
             }
         }
     }

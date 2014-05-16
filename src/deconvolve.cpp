@@ -202,6 +202,16 @@ static void lbfgsEvaluate(
     stats.unaryTime += Duration{Clock::now() - startTime}.count();
 
     // Finish up
+    
+    // normalize primalMu_i
+    for (int i = 0; i < numPrimalVars; ++i) {
+        double sumMu = 0;
+        for (int l = 0; l < numLabels; ++l)
+            sumMu += primalMu_i[i*numLabels+l];
+        for (int l = 0; l < numLabels; ++l)
+            primalMu_i[i*numLabels+l] /= sumMu;
+    }
+
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
     objective = -(regularizerObjective + dataObjective + unaryObjective);
@@ -216,8 +226,11 @@ static void lbfgsEvaluate(
 
 template <int D>
 double fractionalPrimal(const DeconvolveData<D>& data) {
+    const auto& primalMu_i = data.primalMu_i;
+    const auto& R = data.R;
+    double objective = R.fractionalPrimal(primalMu_i);
 
-    return 0;
+    return objective;
 }
 
 template <int D>
@@ -233,12 +246,14 @@ static void lbfgsProgress(
     double primalReg  = data->R.primal(data->x.data());
     double primal = primalData + primalReg;
     double unsmoothedDual = evaluateUnsmoothed(*data, lbfgsX.getcontent());
+    double fPrimal = fractionalPrimal(*data);
 
     std::cout << "Deconvolve Iteration " << data->totalIters << "\t";
     std::cout 
         << "dual: " << -fx 
         << "\tu-dual: " << unsmoothedDual
         << "\tprimal: " << primal 
+        << "\tf-primal: " << fPrimal
         << "\n";
     data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
 }
