@@ -38,15 +38,17 @@ struct DeconvolveData {
 };
 
 template <int D>
-double evaluateUnary(const double* dualVars, const DeconvolveData<D>& data, double* grad, double* diagHessian) {
-    const auto& R = data.R;
-    const auto numPrimalVars = int(data.x.num_elements());
+double evaluateUnary(const Regularizer<D>& R, 
+        int numPrimalVars,
+        int numLambda,
+        double t,
+        const double* dualVars,
+        double* grad,
+        double* diagHessian) {
     const auto numSubproblems = R.numSubproblems();
     const auto numLabels = R.numLabels();
     const auto numPerSubproblem = numPrimalVars*numLabels;
-    const auto numLambda = data.numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = data.params.smoothing;
 
     double unaryObjective = 0;
     auto minTable = std::vector<double>(numLabels, 0);
@@ -72,15 +74,19 @@ double evaluateUnary(const double* dualVars, const DeconvolveData<D>& data, doub
         unaryObjective += minValue - t*log(expSum);
         nuGrad /= expSum;
         nuDiagH /= expSum;
-        grad[i+numLambda] += nuGrad;
+        if (grad)
+            grad[i+numLambda] += nuGrad;
         assert(nuDiagH - nuGrad*nuGrad >= 0);
-        diagHessian[i+numLambda] += 1.0/t * (nuDiagH - nuGrad*nuGrad);
+        if (diagHessian)
+            diagHessian[i+numLambda] += 1.0/t * (nuDiagH - nuGrad*nuGrad);
         for (int alpha = 0; alpha < numSubproblems; ++alpha) {
             for (int xi = 0; xi < numLabels; ++xi) {
                 const double gradLambda = minTable[xi]/expSum;
                 assert(0 <= gradLambda && gradLambda <= 1.0);
-                grad[alpha*numPerSubproblem+i*numLabels+xi] += gradLambda;
-                diagHessian[alpha*numPerSubproblem+i*numLabels+xi] += 1.0/t * gradLambda * (1.0 - gradLambda);
+                if (grad)
+                    grad[alpha*numPerSubproblem+i*numLabels+xi] += gradLambda;
+                if (diagHessian)
+                    diagHessian[alpha*numPerSubproblem+i*numLabels+xi] += 1.0/t * gradLambda * (1.0 - gradLambda);
             }
         }
     }
@@ -139,7 +145,7 @@ static void lbfgsEvaluate(
     stats.dataTime += Duration{Clock::now() - startTime}.count();
 
     startTime = Clock::now();
-    double unaryObjective = evaluateUnary(dualVars, *data, grad, diagHessian.getcontent());
+    double unaryObjective = evaluateUnary(R, numPrimalVars, numLambda, t, dualVars, grad, diagHessian.getcontent());
     stats.unaryTime += Duration{Clock::now() - startTime}.count();
 
     for (int i = 0; i < n; ++i)
@@ -270,7 +276,8 @@ Array<D> Deconvolve(const Array<D>& y,
             std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
             auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState};
 
-            minlbfgssetcond(lbfgsState, 1.0, 0.000001, 0, params.maxIterations - totalIters);
+            int maxIters = std::min(params.maxIterations-totalIters, 20);
+            minlbfgssetcond(lbfgsState, 100.0, 0.000001, 0, maxIters);
             minlbfgsrestartfrom(lbfgsState, lbfgsX);
             minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
             minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);

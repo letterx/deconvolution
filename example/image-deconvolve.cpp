@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <random>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -79,8 +80,16 @@ int main(int argc, char **argv) {
         }
     }
 
+
+
     std::cout << "Convolving\n";
     auto blur = convolveFFT(y, ker);
+
+    std::mt19937 randGen;
+    std::normal_distribution<double> norm{0, 20.0};
+    for (int i = 0; i < width; ++i)
+        for (int j = 0; j < height; ++j)
+            blur[i][j] += norm(randGen);
 
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
@@ -103,7 +112,7 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 50.0;
+    constexpr double regularizerWeight = 100.0;
     auto R = deconvolution::GridRangeRegularizer<2>{
         std::vector<int>{width, height}, 
         nLabels, labelScale, smoothMax, regularizerWeight, 255.0
@@ -119,10 +128,7 @@ int main(int argc, char **argv) {
             }
 
             cv::imshow("Display Window", image);
-            std::cout << "Waiting...";
-            std::cout.flush();
             cv::waitKey(1);
-            std::cout << " done\n";
         };
 
     deconvolution::DeconvolveParams params {};
@@ -131,7 +137,7 @@ int main(int argc, char **argv) {
 
     auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::DeconvolveADMM<2>(y, H, H, R, progressCallback, params, s);
+    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
     std::cout << "Done\n";
 
     std::cout << "Total time:       " << std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count() << "\n";

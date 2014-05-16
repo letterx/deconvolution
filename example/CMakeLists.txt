@@ -12,3 +12,8 @@ target_link_libraries(image-deconvolve
     lbfgs
     fftw3
     )
+
+add_executable(psnr
+    "psnr.cpp")
+
+target_link_libraries(psnr ${OpenCV_LIBS} boost_program_options)
