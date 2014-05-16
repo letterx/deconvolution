@@ -20,7 +20,7 @@
  * Must have sum of supplies = sum of demands
  */
 template <typename T>
-void solveTransport(int sizeSupply, int sizeDemand, const T* costs, 
+double solveTransport(int sizeSupply, int sizeDemand, const T* costs, 
         const T* supply, const T* demand, T* flow);
 
 

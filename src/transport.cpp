@@ -230,7 +230,7 @@ class TransportGraph {
 };
 
 template <typename T>
-void solveTransport(int sizeSupply, int sizeDemand, const T* costs, 
+double solveTransport(int sizeSupply, int sizeDemand, const T* costs, 
         const T* supply, const T* demand, T* flow) {
     T sumSupply = 0;
     for (int i = 0; i < sizeSupply; ++i) 
@@ -254,10 +254,10 @@ void solveTransport(int sizeSupply, int sizeDemand, const T* costs,
         int minI = 0;
         int minJ = 0;
         for (int i = 0; i < sizeSupply; ++i) {
-            if (resSupply.at(i) == 0)
+            if (resSupply.at(i) <= 0)
                 continue;
             for (int j = 0; j < sizeDemand; ++j) {
-                if (resDemand.at(j) == 0)
+                if (resDemand.at(j) <= 0)
                     continue;
                 if (costs[i*sizeDemand+j] < minCost) {
                     minCost = costs[i*sizeDemand+j];
@@ -289,11 +289,20 @@ void solveTransport(int sizeSupply, int sizeDemand, const T* costs,
         else
             break;
     }
+
+    double cost = 0;
+    for (int i = 0; i < sizeSupply; ++i) {
+        for (int j = 0; j < sizeDemand; ++j) {
+            int idx = i*sizeDemand + j;
+            cost += flow[idx] * costs[idx];
+        }
+    }
+    return cost;
 }
 
 
 #define INSTANTIATE_TRANSPORT(T) \
-    template void solveTransport<T>(int sizeSupply, int sizeDemand, \
+    template double solveTransport<T>(int sizeSupply, int sizeDemand, \
             const T* costs, const T* supply, const T* demand, T* flow);
 INSTANTIATE_TRANSPORT(double)
 INSTANTIATE_TRANSPORT(int32_t)
