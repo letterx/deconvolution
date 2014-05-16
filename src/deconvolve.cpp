@@ -159,14 +159,23 @@ static void lbfgsEvaluate(
     for (int i = 0; i < n; ++i)
         grad[i] = 0;
 
+    for (auto& mu : primalMu_i)
+        mu = 0;
+
     // Evaluate Regularizer
     auto startTime = Clock::now();
     double regularizerObjective = 0;
-    for (int i = 0; i < R.numSubproblems(); ++i)
-        regularizerObjective += R.evaluate(i, dualVars+i*numPerSubproblem, t, grad+i*numPerSubproblem, diagHessian.getcontent()+i*numPerSubproblem);
+    for (int alpha = 0; alpha < R.numSubproblems(); ++alpha)
+        regularizerObjective += R.evaluate(alpha, dualVars+alpha*numPerSubproblem, t, grad+alpha*numPerSubproblem, diagHessian.getcontent()+alpha*numPerSubproblem);
 
-    for (int i = 0; i < numLambda; ++i)
-        primalMu_i[i] = grad[i];
+    assert(numPerSubproblem == static_cast<int>(primalMu_i.size()));
+    for (int alpha = 0; alpha < R.numSubproblems(); ++alpha) {
+        for (int i = 0; i < numPerSubproblem; ++i) {
+            primalMu_i[i] += grad[alpha*numPerSubproblem+i];
+        }
+    }
+    for (auto& mu : primalMu_i)
+        mu /= R.numSubproblems();
     stats.regularizerTime += Duration{Clock::now() - startTime}.count();
 
     // Evaluate data-term
@@ -185,17 +194,17 @@ static void lbfgsEvaluate(
     // Evaluate unaries
     startTime = Clock::now();
     double unaryObjective = evaluateUnary(R, numPrimalVars, numLambda, t, dualVars, grad, diagHessian.getcontent());
-    for (int i = 0; i < numLambda; ++i)
+    for (int i = 0; i < numPerSubproblem; ++i)
         // primalMu_i is currently -mu_reg, and grad is mu_unary - mu_reg, and 
         // we want mu_unary + mu_reg
-        primalMu_i[i] = 0.5*(primalMu_i[i] - 2*grad[i]);
+        primalMu_i[i] = 0.5*(grad[i] - 2*primalMu_i[i]);
 
     stats.unaryTime += Duration{Clock::now() - startTime}.count();
 
+    // Finish up
     for (int i = 0; i < n; ++i)
         grad[i] = -grad[i];
     objective = -(regularizerObjective + dataObjective + unaryObjective);
-    //std::cout << "Evaluate: " << objective << "\t(" << regularizerObjective << ", " << dataObjective << ", " << unaryObjective << ")\n";
     
     for (int i = 0; i < n; ++i) {
         diagHessian[i] = std::max(diagHessian[i], 1e-7);
@@ -203,7 +212,12 @@ static void lbfgsEvaluate(
     minlbfgssetprecdiag(data->lbfgsState, diagHessian);
 
     stats.iterTime += Duration{Clock::now() - iterStartTime}.count();
+}
 
+template <int D>
+double fractionalPrimal(const DeconvolveData<D>& data) {
+
+    return 0;
 }
 
 template <int D>
@@ -282,7 +296,7 @@ Array<D> Deconvolve(const Array<D>& y,
     auto dualVars = std::unique_ptr<double>(new double[numDualVars]);
     double* lambda = dualVars.get();
     double* nu = dualVars.get() + numLambda;
-    std::vector<double> primalMu_i(numLambda, 0);
+    std::vector<double> primalMu_i(numPrimalVars*R.numLabels(), 0);
     for (size_t i = 0; i < x.num_elements(); ++i) {
         x.data()[i] = 0;
     }
