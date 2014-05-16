@@ -126,7 +126,8 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                 for (int l = 0; l < _numLabels; ++l) {
                     double grad_jl = -exp(logMarg[l] - logSumExp);
                     assert(0 <= -grad_jl && -grad_jl <= 1.0);
-                    gradient[(baseIdx + j*stride)*_numLabels + l] += grad_jl;
+                    if (gradient)
+                        gradient[(baseIdx + j*stride)*_numLabels + l] += grad_jl;
                     if (diagHessian)
                         diagHessian[(baseIdx + j*stride)*_numLabels + l] = smoothingMult * (-grad_jl)*(1 + grad_jl);
                 }

@@ -152,6 +152,12 @@ class Preconditioner {
         Vector<D> trans_solve(const Vector<D>& v) const { return v; }
 };
 
+template <int D>
+double quadraticValue(const LinearSystem<D>& Q,
+        const Array<D>& b,
+        const Array<D>& x) {
+    return dot(x, Q(x)) - dot(b, x);
+}
         
 
 template <int D>
@@ -167,7 +173,7 @@ double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x) 
     if (retCode)
         std::cout << "*** CG reached maxIter --- residual: " << tol << "***\n";
     x = X.data();
-    return dot(x, Q(x)) - dot(b, x);
+    return quadraticValue<D>(Q, b, x);
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \

@@ -18,6 +18,11 @@ namespace deconvolution {
  */
 template <int D>
 double quadraticMinCG(const LinearSystem<D>& Q, const Array<D>& b, Array<D>& x);
+
+template <int D>
+double quadraticValue(const LinearSystem<D>& Q,
+        const Array<D>& b,
+        const Array<D>& x);
 }
 
 #endif
