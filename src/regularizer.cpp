@@ -206,6 +206,17 @@ double GridRegularizer<D>::fractionalPrimal(const std::vector<double>& primalMu_
 }
 
 template <int D>
+void GridRegularizer<D>::convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const {
+    int n = x.num_elements();
+    for (int i = 0; i < n; ++i) {
+        double coord = 0;
+        for (int l = 0; l < _numLabels; ++l)
+            coord += primalMu_i[i*_numLabels+l]*getLabel(i, l);
+        x.data()[i] = coord;
+    }
+}
+
+template <int D>
 void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
     for (int i = 0; i < D; ++i)
         assert(static_cast<int>(x.shape()[i]) == _extents[i]);

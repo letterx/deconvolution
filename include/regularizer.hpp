@@ -19,6 +19,7 @@ class Regularizer {
         virtual double primal(const double* x) const = 0;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const = 0;
         virtual void sampleLabels(const Array<D>& x, double scale) { };
+        virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const = 0;
 };
 
 template <int D>
@@ -32,6 +33,7 @@ class DummyRegularizer : public Regularizer<D> {
             { return 0; }
         virtual double primal(const double* x) const override { return 0; }
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override { return 0; }
+        virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override { }
     private:
 };
 
@@ -66,6 +68,7 @@ class GridRegularizer : public Regularizer<D> {
         virtual double primal(const double* x) const override;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override;
         virtual void sampleLabels(const Array<D>& x, double scale) override;
+        virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override;
     protected:
         std::vector<int> _extents;
         int _numLabels;

@@ -230,6 +230,9 @@ double fractionalPrimal(const DeconvolveData<D>& data) {
     const auto& R = data.R;
     double objective = R.fractionalPrimal(primalMu_i);
 
+    R.convexCombination(primalMu_i, data.x);
+    objective += quadraticValue<D>(data.Q, data.b, data.x) + data.constantTerm;
+
     return objective;
 }
 
