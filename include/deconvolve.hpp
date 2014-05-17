@@ -23,6 +23,7 @@ struct DeconvolveParams {
     int maxIterations { 1000 };
     double admmRho { 10.0 };
     double admmConvergenceNorm { 1.0 };
+    int lbfgsIters { 20 };
 };
 
 struct DeconvolveStats {

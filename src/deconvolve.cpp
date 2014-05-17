@@ -36,6 +36,8 @@ struct DeconvolveData {
     int& totalIters;
     minlbfgsstate& lbfgsState;
     std::vector<double>& primalMu_i;
+    double& bestPrimal;
+    double& currentDual;
 };
 
 template <int D>
@@ -194,10 +196,12 @@ static void lbfgsEvaluate(
     // Evaluate unaries
     startTime = Clock::now();
     double unaryObjective = evaluateUnary(R, numPrimalVars, numLambda, t, dualVars, grad, diagHessian.getcontent());
-    for (int i = 0; i < numPerSubproblem; ++i)
-        // primalMu_i is currently -mu_reg, and grad is mu_unary - mu_reg, and 
-        // we want mu_unary + mu_reg
-        primalMu_i[i] = 0.5*(grad[i] - 2*primalMu_i[i]);
+    /*
+     *for (int i = 0; i < numPerSubproblem; ++i)
+     *    // primalMu_i is currently -mu_reg, and grad is mu_unary - mu_reg, and 
+     *    // we want mu_unary + mu_reg
+     *    primalMu_i[i] = 0.5*(grad[i] - 2*primalMu_i[i]);
+     */
 
     stats.unaryTime += Duration{Clock::now() - startTime}.count();
 
@@ -248,17 +252,21 @@ static void lbfgsProgress(
     double primalData = data->primalFn(data->x);
     double primalReg  = data->R.primal(data->x.data());
     double primal = primalData + primalReg;
-    double unsmoothedDual = evaluateUnsmoothed(*data, lbfgsX.getcontent());
-    double fPrimal = fractionalPrimal(*data);
 
     std::cout << "Deconvolve Iteration " << data->totalIters << "\t";
     std::cout 
         << "dual: " << -fx 
-        << "\tu-dual: " << unsmoothedDual
-        << "\tprimal: " << primal 
-        << "\tf-primal: " << fPrimal
-        << "\n";
-    data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
+        << "\tprimal: " << primal;
+        if (data->totalIters % data->params.lbfgsIters == 0) {
+            double unsmoothedDual = evaluateUnsmoothed(*data, lbfgsX.getcontent());
+            double fPrimal = fractionalPrimal(*data);
+            data->bestPrimal = std::min(fPrimal, data->bestPrimal);
+            std::cout << "\tf-primal: " << fPrimal;
+            data->currentDual = unsmoothedDual;
+            std::cout << "\tu-dual: " << unsmoothedDual;
+            data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
+        }
+        std::cout << "\n";
 }
 
 /*
@@ -333,8 +341,6 @@ Array<D> Deconvolve(const Array<D>& y,
         }
     }
 
-    double fVal = 0;
-
     real_1d_array lbfgsX;
     lbfgsX.setcontent(numDualVars, dualVars.get());
 
@@ -347,26 +353,40 @@ Array<D> Deconvolve(const Array<D>& y,
     minlbfgscreate(10, lbfgsX, lbfgsState);
     minlbfgssetxrep(lbfgsState, true);
 
+
     std::cout << "Begin lbfgs\n";
     int totalIters = 0;
     for (int samplingIter = 0; samplingIter < 1; ++samplingIter) {
         if (totalIters >= params.maxIterations)
             break;
-        for (; params.smoothing >= params.minSmoothing; params.smoothing /= 2) {
+        double bestPrimal = std::numeric_limits<double>::max();
+        double currentDual = 0;
+        for (; params.smoothing >= params.minSmoothing; params.smoothing /= 1.20) {
             if (totalIters >= params.maxIterations)
                 break;
             std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
-            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState, primalMu_i};
+            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState, primalMu_i, bestPrimal, currentDual};
 
-            int maxIters = std::min(params.maxIterations-totalIters, 20);
-            minlbfgssetcond(lbfgsState, 100.0, 0.000001, 0, maxIters);
+            int maxIters = std::min(params.maxIterations-totalIters, params.lbfgsIters-1);
+            minlbfgssetcond(lbfgsState, 0.0, 0.0, 0, maxIters);
             minlbfgsrestartfrom(lbfgsState, lbfgsX);
             minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
             minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
 
-            double primal = primalFn(x) + R.primal(x.data());
-            if (primal < -fVal) break;
-            std::cout << "\tL-BFGS finished\n";
+            double primalDualGap = bestPrimal - currentDual;
+            /*
+             *double newSmoothing = primalDualGap / (3*numPrimalVars*log(R.numLabels()));
+             *params.smoothing = std::min(params.smoothing, newSmoothing);
+             */
+
+            if (primalDualGap/bestPrimal < 0.1) {
+                std::cout << "Stopping conditions!\n";
+                std::cout << "Gap: " << primalDualGap 
+                    << "\tBest Primal: " << bestPrimal 
+                    << "\tRatio: " << primalDualGap/bestPrimal
+                    << "\n";
+                break;
+            }
         }
         std::cout << "*** Resampling ***\n";
         R.sampleLabels(x, 1.0/((samplingIter+1)*(samplingIter+1)));
