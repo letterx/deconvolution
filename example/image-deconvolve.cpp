@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     namespace po = boost::program_options;
     // Variables set by program options
     std::string basename;
+    std::string extension;
     std::string infilename;
     std::string outfilename;
     std::string blurfilename;
@@ -22,6 +23,7 @@ int main(int argc, char **argv) {
     options_desc.add_options()
         ("help", "Display this help message")
         ("image", po::value<std::string>(&basename)->required(), "Name of image (without extension)")
+        ("extension,e", po::value<std::string>(&extension)->default_value(".pgm"), "Extension of filename")
     ;
 
     po::positional_options_description popts_desc;
@@ -44,7 +46,7 @@ int main(int argc, char **argv) {
         std::cout << options_desc;
         exit(-1);
     }
-    infilename = basename + ".pgm";
+    infilename = basename + "." + extension;
     outfilename = basename + "-out.pgm";
     blurfilename = basename + "-blur.pgm";
 
@@ -68,8 +70,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    int kerSize = 21;
-    double sigma = 3.0;
+    int kerSize = 31;
+    double sigma = 5.0;
     deconvolution::Array<2> ker{boost::extents[kerSize][kerSize]};
     std::vector<int> kerBase{-10, -10};
     ker.reindex(kerBase);
@@ -115,7 +117,7 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 50.0;
+    constexpr double regularizerWeight = 2.0;
     auto R = deconvolution::GridRangeRegularizer<2>{
         std::vector<int>{width, height}, 
         nLabels, labelScale, smoothMax, regularizerWeight, 255.0

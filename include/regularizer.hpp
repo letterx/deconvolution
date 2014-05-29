@@ -58,7 +58,12 @@ class GridRegularizer : public Regularizer<D> {
     private:
         // Internal non-virtual functions to improve inlining
         double _getLabel(int var, int l) const { return _labels[var*_numLabels+l]; }
-        double _edgeFn(double l1, double l2) const { return _smoothWeight*std::min(_smoothMax, fabs(l1 - l2)); }
+        double _edgeFn(double l1, double l2) const { 
+            return _smoothWeight*std::min(
+                    _smoothMax,
+                    std::max(fabs(l1 - l2)-_labelScale, 0.0)
+                    );
+        }
 
     public:
         virtual int numSubproblems() const override { return D; }

@@ -38,6 +38,7 @@ struct DeconvolveData {
     std::vector<double>& primalMu_i;
     double& bestPrimal;
     double& currentDual;
+    double& smoothing;
 };
 
 template <int D>
@@ -97,9 +98,9 @@ double evaluateUnary(const Regularizer<D>& R,
 }
 
 template <int D>
-double evaluateUnsmoothed(const DeconvolveData<D>& data, const double* dualVars) {
+double evaluateUnsmoothed(DeconvolveData<D>& data, const double* dualVars) {
     const auto& R = data.R;
-    const auto& x = data.x;
+    auto& x = data.x;
     const auto& Q = data.Q;
     const auto& b = data.b;
     const auto numPrimalVars = int(x.num_elements());
@@ -114,7 +115,7 @@ double evaluateUnsmoothed(const DeconvolveData<D>& data, const double* dualVars)
     for (int i = 0; i < numPrimalVars; ++i)
         bPlusNu.data()[i] += nu[i];
 
-    double dataObjective = quadraticValue<D>(Q, bPlusNu, x) + constantTerm;
+    double dataObjective = quadraticMinCG<D>(Q, bPlusNu, x) + constantTerm;
 
     double unaryObjective = evaluateUnary(R, numPrimalVars, numLambda, t, dualVars, nullptr, nullptr);
 
@@ -146,7 +147,7 @@ static void lbfgsEvaluate(
     const auto numPerSubproblem = numPrimalVars*numLabels;
     const auto numLambda = data->numLambda;
     const double* nu = dualVars + numLambda;
-    const double t = data->params.smoothing;
+    const double t = data->smoothing;
     const double dataSmoothing = data->params.dataSmoothing;
     std::vector<double>& primalMu_i = data->primalMu_i;
     real_1d_array& diagHessian = data->diagHessian;
@@ -249,22 +250,22 @@ static void lbfgsProgress(
     
     data->totalIters++;
 
-    double primalData = data->primalFn(data->x);
-    double primalReg  = data->R.primal(data->x.data());
-    double primal = primalData + primalReg;
+    /*
+     *double primalData = data->primalFn(data->x);
+     *double primalReg  = data->R.primal(data->x.data());
+     *double primal = primalData + primalReg;
+     */
 
     std::cout << "Deconvolve Iteration " << data->totalIters << "\t";
-    std::cout 
-        << "dual: " << -fx 
-        << "\tprimal: " << primal;
+    std::cout << "dual: " << -fx;
         if (data->totalIters % data->params.lbfgsIters == 0) {
-            double unsmoothedDual = evaluateUnsmoothed(*data, lbfgsX.getcontent());
             double fPrimal = fractionalPrimal(*data);
+            double unsmoothedDual = evaluateUnsmoothed(*data, lbfgsX.getcontent());
             data->bestPrimal = std::min(fPrimal, data->bestPrimal);
             std::cout << "\tf-primal: " << fPrimal;
             data->currentDual = unsmoothedDual;
             std::cout << "\tu-dual: " << unsmoothedDual;
-            data->pc(data->x, -fx, primalData, primalReg, data->params.smoothing);
+            data->pc(data->x, -fx, fPrimal, unsmoothedDual, data->smoothing);
         }
         std::cout << "\n";
 }
@@ -328,7 +329,6 @@ Array<D> Deconvolve(const Array<D>& y,
     }
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Q, b, x);
-    R.sampleLabels(x, 0.5);
 
     for (int i = 0; i < numPrimalVars; ++i)
         //nu[i] = -0.00001*x.data()[i];
@@ -361,11 +361,12 @@ Array<D> Deconvolve(const Array<D>& y,
             break;
         double bestPrimal = std::numeric_limits<double>::max();
         double currentDual = 0;
-        for (; params.smoothing >= params.minSmoothing; params.smoothing /= 1.20) {
+        double smoothing = params.maxSmoothing;
+        for (; smoothing >= params.minSmoothing; smoothing /= 1.20) {
             if (totalIters >= params.maxIterations)
                 break;
-            std::cout << "\t*** Smoothing: " << params.smoothing << " ***\n";
-            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState, primalMu_i, bestPrimal, currentDual};
+            std::cout << "\t*** Smoothing: " << smoothing << " ***\n";
+            auto algData = DeconvolveData<D>{x, b, Q, R, numLambda, constantTerm, diagHessian, pc, params, stats, primalFn, totalIters, lbfgsState, primalMu_i, bestPrimal, currentDual, smoothing};
 
             int maxIters = std::min(params.maxIterations-totalIters, params.lbfgsIters-1);
             minlbfgssetcond(lbfgsState, 0.0, 0.0, 0, maxIters);
@@ -376,10 +377,10 @@ Array<D> Deconvolve(const Array<D>& y,
             double primalDualGap = bestPrimal - currentDual;
             /*
              *double newSmoothing = primalDualGap / (3*numPrimalVars*log(R.numLabels()));
-             *params.smoothing = std::min(params.smoothing, newSmoothing);
+             *smoothing = std::min(smoothing, newSmoothing);
              */
 
-            if (primalDualGap/bestPrimal < 0.1) {
+            if (primalDualGap/bestPrimal < 0.7) {
                 std::cout << "Stopping conditions!\n";
                 std::cout << "Gap: " << primalDualGap 
                     << "\tBest Primal: " << bestPrimal 
@@ -389,7 +390,7 @@ Array<D> Deconvolve(const Array<D>& y,
             }
         }
         std::cout << "*** Resampling ***\n";
-        R.sampleLabels(x, 1.0/((samplingIter+1)*(samplingIter+1)));
+        R.sampleLabels(x, 1.0);
     }
     return x;
 }
@@ -477,7 +478,7 @@ double AdmmRegularizerLbfgs<D>::_evaluate(const double* lambda, double* grad,
     const int varsPerSubproblem = _numXVars*_R->numLabels();
     for (int alpha = 0; alpha < _R->numSubproblems(); ++alpha) {
         int offset = alpha*varsPerSubproblem;
-        obj += _R->evaluate(alpha, lambda+offset, _params->smoothing,
+        obj += _R->evaluate(alpha, lambda+offset, _params->maxSmoothing,
                 grad+offset, hessianDiag+offset);
     }
 

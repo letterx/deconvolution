@@ -54,7 +54,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         mexField = mxGetField(mex_params, 0, "smoothing");
         if (mexField)
-            params.smoothing = mxGetPr(mexField)[0];
+            params.maxSmoothing = mxGetPr(mexField)[0];
 
         mexField = mxGetField(mex_params, 0, "minSmoothing");
         if (mexField)

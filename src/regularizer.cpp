@@ -229,6 +229,7 @@ void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
             //_labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
         }
     }
+    _labelScale = scale;
 }
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \

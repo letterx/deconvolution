@@ -11,12 +11,14 @@ int main(int argc, char **argv) {
     // Variables set by program options
     std::string fname1;
     std::string fname2;
+    double bias = 0;
 
     po::options_description options_desc("Deconvolve arguments");
     options_desc.add_options()
         ("help", "Display this help message")
         ("image", po::value<std::string>(&fname1)->required(), "image")
         ("orig", po::value<std::string>(&fname2)->required(), "original-image")
+        ("b,bias", po::value<double>(&bias)->default_value(0.0), "bias")
     ;
 
     po::positional_options_description popts_desc;
@@ -44,7 +46,7 @@ int main(int argc, char **argv) {
     cv::Mat image = cv::imread(fname1.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
     cv::Mat orig = cv::imread(fname2.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
 
-    auto p = psnrMse(image, orig);
+    auto p = psnrMse(image, orig, bias);
 
     std::cout << "PSNR: " << p.first << "\n";
     std::cout << "MSE:  " << p.second << "\n";
