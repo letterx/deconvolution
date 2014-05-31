@@ -46,7 +46,12 @@ Array<D> Deconvolve(const Array<D>& y, const LinearSystem<D>& H, const LinearSys
 
 template <int D>
 Array<D> DeconvolveADMM(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveParams& params, DeconvolveStats& s);
-}
+
+template <int D>
+Array<D> DeconvolvePrimal(const Array<D>& y, const LinearSystem<D>& H, const LinearSystem<D>& Ht, Regularizer<D>& R, ProgressCallback<D>& pc, DeconvolveParams& params, DeconvolveStats& s);
+
+
+} // namespace deconvolution
 
 
 

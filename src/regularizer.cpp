@@ -144,7 +144,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
 }
 
 template <int D>
-double GridRegularizer<D>::primal(const double* x) const {
+double GridRegularizer<D>::primal(const double* x, double* gradient) const {
     double objective = 0;
     const auto X = boost::const_multi_array_ref<double, D>{x, _extents};
 
@@ -160,7 +160,11 @@ double GridRegularizer<D>::primal(const double* x) const {
             for (int i = 0; i < D; ++i) baseIdx += base[i]*X.strides()[i];
             int stride = X.strides()[subproblem];
             for (int i = 0; i < width-1; ++i) {
-                objective += _edgeFn(x[baseIdx+i*stride], x[baseIdx+(i+1)*stride]);
+                auto idx1 = baseIdx+i*stride;
+                auto idx2 = baseIdx+(i+1)*stride;
+                objective += _edgeFn(x[idx1], x[idx2]);
+                if (gradient)
+                    _edgeGrad(x[idx1], x[idx2], gradient[idx1], gradient[idx2]);
             }
         }
     }

@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_SUITE(RegularizerTests)
             0.0,-2.0, 2.0, 4.0
         };
 
-        auto primal = R.primal(x);
+        auto primal = R.primal(x, nullptr);
         BOOST_CHECK_CLOSE(primal, 18 + 19, epsilon);
     }
 
