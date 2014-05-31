@@ -81,8 +81,8 @@ class GridRegularizer : public Regularizer<D> {
         }
         void _edgeGrad(double l1, double l2, double& g1, double& g2) const {
             double deriv = _distanceDeriv(l1 - l2);
-            g1 = deriv;
-            g2 = -deriv;
+            g1 += deriv;
+            g2 += -deriv;
         }
 
     public:

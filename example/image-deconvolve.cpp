@@ -116,8 +116,8 @@ int main(int argc, char **argv) {
 
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
-    constexpr double smoothMax = 32.0;
-    constexpr double regularizerWeight = 2.0;
+    constexpr double smoothMax = 1.0;
+    constexpr double regularizerWeight = 100.0;
     auto R = deconvolution::GridRangeRegularizer<2>{
         std::vector<int>{width, height}, 
         nLabels, labelScale, smoothMax, regularizerWeight, 255.0

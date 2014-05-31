@@ -88,7 +88,7 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
         DeconvolveStats& s) {
     Array<D> b = 2*Ht(y);
     Array<D> x = b;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)); };
     double constantTerm = dot(y, y);
 
     int numPrimalVars = x.num_elements();
