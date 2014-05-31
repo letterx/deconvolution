@@ -30,8 +30,35 @@ struct PrimalLbfgsData {
         Array<D>& _x;
         Regularizer<D>& _R;
         double _constantTerm;
-
+        ProgressCallback<D>& _pc;
 };
+
+template <int D>
+void PrimalLbfgsData<D>::evaluate(const real_1d_array& lbfgsX,
+                double& obj,
+                real_1d_array& lbfgsGrad) {
+    int n = _x.num_elements();
+    for (int i = 0; i < n; ++i) {
+        _x.data()[i] = lbfgsX.getcontent()[i];
+    }
+    auto Qx = _Q(_x);
+    auto xQx = dot(_x, Qx);
+    auto bx = dot(_b, _x);
+    for (int i = 0; i < n; ++i)
+        lbfgsGrad[i] = 2*Qx.data()[i] - _b.data()[i];
+
+    obj = xQx - bx;
+
+    obj += _R.primal(_x.data(), lbfgsGrad.getcontent());
+}
+
+template <int D>
+void PrimalLbfgsData<D>::progress(const real_1d_array& lbfgsX,
+                double fx) {
+    std::cout << "Iteration done: " << fx << "\n";
+    _pc(_x, fx, 0, 0, 0);
+}
+
 
 template <int D>
 static void lbfgsEvaluate(
@@ -61,7 +88,7 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
         DeconvolveStats& s) {
     Array<D> b = 2*Ht(y);
     Array<D> x = b;
-    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)); };
+    LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
     double constantTerm = dot(y, y);
 
     int numPrimalVars = x.num_elements();
@@ -79,7 +106,7 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
     minlbfgssetxrep(lbfgsState, true);
     minlbfgssetcond(lbfgsState, 1e-5, 0.0, 0, 1000);
 
-    auto algData = PrimalLbfgsData<D>{Q, b, x, R, constantTerm};
+    auto algData = PrimalLbfgsData<D>{Q, b, x, R, constantTerm, pc};
 
     std::cout << "Begin lbfgs\n";
     minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);

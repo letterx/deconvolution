@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     options_desc.add_options()
         ("help", "Display this help message")
         ("image", po::value<std::string>(&basename)->required(), "Name of image (without extension)")
-        ("extension,e", po::value<std::string>(&extension)->default_value(".pgm"), "Extension of filename")
+        ("extension,e", po::value<std::string>(&extension)->default_value("pgm"), "Extension of filename")
     ;
 
     po::positional_options_description popts_desc;
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 
     auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
+    auto deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, R, progressCallback, params, s);
     std::cout << "Done\n";
 
     std::cout << "Total time:       " << std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count() << "\n";
