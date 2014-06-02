@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     cv::imshow("Display Window", image);
-    cv::waitKey(1);
+    cv::waitKey(3000);
 
     auto reblur = convolveFFT(deblur, ker);
 

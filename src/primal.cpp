@@ -3,6 +3,7 @@
 #include <limits>
 #include <iostream>
 
+#include "ceres.hpp"
 #include "util.hpp"
 #include "regularizer.hpp"
 
@@ -16,13 +17,34 @@ namespace deconvolution {
 using namespace alglib;
 
 template <int D>
-struct PrimalLbfgsData {
+struct PrimalLbfgsData : GradientProblem {
     public:
-        void evaluate(const real_1d_array& lbfgsX,
-                double& obj,
-                real_1d_array& lbfgsGrad);
+        PrimalLbfgsData(LinearSystem<D>& Q,
+                Array<D>& b,
+                Array<D>& x,
+                Regularizer<D>& R,
+                double constantTerm,
+                ProgressCallback<D>& pc)
+            : _Q(Q)
+            , _b(b)
+            , _x(x)
+            , _R(R)
+            , _constantTerm(constantTerm)
+            , _pc(pc)
+        { }
 
-        void progress(const real_1d_array& lbfgsX,
+        virtual bool Evaluate(const double* parameters, 
+                double* cost, 
+                double* gradient) const override;
+        virtual int NumParameters() const override { return _x.num_elements(); }
+
+        void alglibEvaluate(const real_1d_array& lbfgsX,
+                double& obj,
+                real_1d_array& lbfgsGrad) {
+            Evaluate(lbfgsX.getcontent(), &obj, lbfgsGrad.getcontent());
+        }
+
+        void alglibProgress(const real_1d_array& lbfgsX,
                 double fx);
 
         LinearSystem<D>& _Q;
@@ -34,26 +56,29 @@ struct PrimalLbfgsData {
 };
 
 template <int D>
-void PrimalLbfgsData<D>::evaluate(const real_1d_array& lbfgsX,
-                double& obj,
-                real_1d_array& lbfgsGrad) {
+bool PrimalLbfgsData<D>::Evaluate(const double* parameters,
+                double* obj,
+                double* gradient) const {
     int n = _x.num_elements();
     for (int i = 0; i < n; ++i) {
-        _x.data()[i] = lbfgsX.getcontent()[i];
+        _x.data()[i] = parameters[i];
     }
     auto Qx = _Q(_x);
     auto xQx = dot(_x, Qx);
     auto bx = dot(_b, _x);
     for (int i = 0; i < n; ++i)
-        lbfgsGrad[i] = 2*Qx.data()[i] - _b.data()[i];
+        gradient[i] = 2*Qx.data()[i] - _b.data()[i];
 
-    obj = xQx - bx;
+    *obj = xQx - bx;
 
-    obj += _R.primal(_x.data(), lbfgsGrad.getcontent());
+    *obj += _R.primal(_x.data(), gradient);
+    *obj += _constantTerm;
+
+    return true;
 }
 
 template <int D>
-void PrimalLbfgsData<D>::progress(const real_1d_array& lbfgsX,
+void PrimalLbfgsData<D>::alglibProgress(const real_1d_array& lbfgsX,
                 double fx) {
     std::cout << "Iteration done: " << fx << "\n";
     _pc(_x, fx, 0, 0, 0);
@@ -67,7 +92,7 @@ static void lbfgsEvaluate(
         real_1d_array& lbfgsGrad,
         void* instance) {
     static_cast<PrimalLbfgsData<D>*>(instance)
-        ->evaluate(lbfgsX, objective, lbfgsGrad);
+        ->alglibEvaluate(lbfgsX, objective, lbfgsGrad);
 }
 
 template <int D>
@@ -75,7 +100,7 @@ static void lbfgsProgress(
         const real_1d_array& lbfgsX,
         double fx,
         void *instance) {
-    static_cast<PrimalLbfgsData<D>*>(instance)->progress(lbfgsX, fx);
+    static_cast<PrimalLbfgsData<D>*>(instance)->alglibProgress(lbfgsX, fx);
 }
 
 template <int D>
@@ -96,25 +121,29 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
         x.data()[i] = 0;
     }
 
-    real_1d_array lbfgsX;
-    lbfgsX.setcontent(numPrimalVars, x.data());
-
-    minlbfgsstate lbfgsState;
-    minlbfgsreport lbfgsReport;
-
-    minlbfgscreate(10, lbfgsX, lbfgsState);
-    minlbfgssetxrep(lbfgsState, true);
-    minlbfgssetcond(lbfgsState, 1e-5, 0.0, 0, 1000);
-
     auto algData = PrimalLbfgsData<D>{Q, b, x, R, constantTerm, pc};
+    ceresSolve(algData, x.data());
 
-    std::cout << "Begin lbfgs\n";
-    minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
-    minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
-
-    for (int i = 0; i < numPrimalVars; ++i) {
-        x.data()[i] = lbfgsX.getcontent()[i];
-    }
+/*
+ *    real_1d_array lbfgsX;
+ *    lbfgsX.setcontent(numPrimalVars, x.data());
+ *
+ *    minlbfgsstate lbfgsState;
+ *    minlbfgsreport lbfgsReport;
+ *
+ *    minlbfgscreate(10, lbfgsX, lbfgsState);
+ *    minlbfgssetxrep(lbfgsState, true);
+ *    minlbfgssetcond(lbfgsState, 1e-5, 0.0, 0, 1000);
+ *
+ *
+ *    std::cout << "Begin lbfgs\n";
+ *    minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
+ *    minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
+ *
+ *    for (int i = 0; i < numPrimalVars; ++i) {
+ *        x.data()[i] = lbfgsX.getcontent()[i];
+ *    }
+ */
 
     return x;
 }

@@ -10,6 +10,7 @@ target_link_libraries(image-deconvolve
     boost_program_options
     ${libs}
     ${OpenCV_LIBS}
+    ${CERES_LIBRARIES}
     lbfgs
     fftw3
     )

@@ -125,7 +125,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     DeconvolveStats stats{};
 
     try {
-        auto x = Deconvolve<3>(y, H, Ht, R, pc, params, stats);
+        auto x = DeconvolvePrimal<3>(y, H, Ht, R, pc, params, stats);
         plhs[0] = mxCreateNumericArray(3, matlabDims.data(), mxDOUBLE_CLASS, mxREAL);
         double* resultData = mxGetPr(plhs[0]);
         for (int i = 0; i < size; ++i) 

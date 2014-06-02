@@ -32,11 +32,15 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories("src/iml")
 include_directories("src/alglib")
 
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIRS})
+
 set(libs
     tbb
     )
 
 set(deconvolve-sources
+    src/ceres.cpp
     src/deconvolve.cpp
     src/optimal-grad.cpp
     src/primal.cpp
