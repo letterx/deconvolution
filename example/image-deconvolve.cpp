@@ -18,12 +18,21 @@ int main(int argc, char **argv) {
     std::string infilename;
     std::string outfilename;
     std::string blurfilename;
+    int kerSize = 31;
+    double sigma = 0.0;
+    double noiseSigma = 0.0;
+    double regularizerWidth = 0.0;
+    double regularizerWeight = 50.0;
 
     po::options_description options_desc("Deconvolve arguments");
     options_desc.add_options()
         ("help", "Display this help message")
         ("image", po::value<std::string>(&basename)->required(), "Name of image (without extension)")
         ("extension,e", po::value<std::string>(&extension)->default_value("pgm"), "Extension of filename")
+        ("rweight", po::value<double>(&regularizerWeight)->default_value(50.0), "Regularizer weight")
+        ("rwidth", po::value<double>(&regularizerWidth)->default_value(9.0), "Regularizer width")
+        ("ksigma,s", po::value<double>(&sigma)->default_value(5.0), "Kernel sigma")
+        ("nsigma", po::value<double>(&noiseSigma)->default_value(5.0), "Noise sigma")
     ;
 
     po::positional_options_description popts_desc;
@@ -70,8 +79,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    int kerSize = 31;
-    double sigma = 5.0;
     deconvolution::Array<2> ker{boost::extents[kerSize][kerSize]};
     std::vector<int> kerBase{-10, -10};
     ker.reindex(kerBase);
@@ -91,7 +98,7 @@ int main(int argc, char **argv) {
     auto blur = convolveFFT(y, ker);
 
     std::mt19937 randGen;
-    std::normal_distribution<double> norm{0, 20.0};
+    std::normal_distribution<double> norm{0, noiseSigma};
     for (int i = 0; i < width; ++i)
         for (int j = 0; j < height; ++j)
             blur[i][j] += norm(randGen);
@@ -116,8 +123,6 @@ int main(int argc, char **argv) {
 
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
-    constexpr double regularizerWidth = 3.0;
-    constexpr double regularizerWeight = 100.0;
     auto ep = deconvolution::SmoothEdge{regularizerWeight, regularizerWidth};
     auto R = deconvolution::GridRangeRegularizer<2, deconvolution::SmoothEdge>{
         std::vector<int>{width, height}, 
