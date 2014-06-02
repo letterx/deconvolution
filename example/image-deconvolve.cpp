@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
     double noiseSigma = 0.0;
     double regularizerWidth = 0.0;
     double regularizerWeight = 50.0;
+    std::string method;
 
     po::options_description options_desc("Deconvolve arguments");
     options_desc.add_options()
@@ -33,6 +34,7 @@ int main(int argc, char **argv) {
         ("rwidth", po::value<double>(&regularizerWidth)->default_value(9.0), "Regularizer width")
         ("ksigma,s", po::value<double>(&sigma)->default_value(5.0), "Kernel sigma")
         ("nsigma", po::value<double>(&noiseSigma)->default_value(5.0), "Noise sigma")
+        ("method,m", po::value<std::string>(&method)->default_value("dual"), "Optimization method")
     ;
 
     po::positional_options_description popts_desc;
@@ -152,7 +154,15 @@ int main(int argc, char **argv) {
 
     auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
-    auto deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, R, progressCallback, params, s);
+    deconvolution::Array<2> deblur{boost::extents[width][height]};
+    if (method == std::string("primal"))
+        deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, R, progressCallback, params, s);
+    else if (method == std::string("dual"))
+        deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
+    else {
+        std::cout << "Unknown optimization method!\n";
+        exit(-1);
+    }
     std::cout << "Done\n";
 
     std::cout << "Total time:       " << std::chrono::duration<double>{std::chrono::system_clock::now() - startTime}.count() << "\n";

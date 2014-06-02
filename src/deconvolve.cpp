@@ -380,7 +380,7 @@ Array<D> Deconvolve(const Array<D>& y,
              *smoothing = std::min(smoothing, newSmoothing);
              */
 
-            if (primalDualGap/bestPrimal < 0.7) {
+            if (primalDualGap/bestPrimal < 0.1) {
                 std::cout << "Stopping conditions!\n";
                 std::cout << "Gap: " << primalDualGap 
                     << "\tBest Primal: " << bestPrimal 
