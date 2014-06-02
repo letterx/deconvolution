@@ -105,7 +105,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         hEvaluations++;
         return result;
     };
-    GridRegularizer<3> R{dims, 13, 4.0, regularizerMax, regularizerWeight};
+    auto ep = TruncatedL1{ regularizerMax, regularizerWeight };
+    GridRegularizer<3, TruncatedL1> R{dims, 13, 4.0, ep};
     ProgressCallback<3> pc = [&](const Array<3>& x, double dual, double primalData, double primalReg, double smoothing) { 
         mxArray* callbackRhs[] = { 
             const_cast<mxArray*>(mex_progress), 

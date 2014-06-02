@@ -8,7 +8,8 @@ using namespace deconvolution;
 
 BOOST_AUTO_TEST_SUITE(AdmmTests)
     BOOST_AUTO_TEST_CASE(Step1) {
-        auto R = GridRangeRegularizer<1>{std::vector<int>{2}, 2, 1, 1, 1.0, 1.0}; 
+        auto ep = TruncatedL1{1.0, 1.0};
+        auto R = GridRangeRegularizer<1, TruncatedL1>{std::vector<int>{2}, 2, 1, ep, 1.0};
         
         DeconvolveParams params;
         real_1d_array hessianDiag;
@@ -66,7 +67,8 @@ BOOST_AUTO_TEST_SUITE(AdmmTests)
     }
 
     BOOST_AUTO_TEST_CASE(Step2) {
-        auto R = GridRangeRegularizer<1>{std::vector<int>{2}, 2, 1, 1, 1.0, 1.0}; 
+        auto ep = TruncatedL1{1.0, 1.0};
+        auto R = GridRangeRegularizer<1, TruncatedL1>{std::vector<int>{2}, 2, 1, ep, 1.0};
         
         DeconvolveParams params;
         real_1d_array hessianDiag;
@@ -129,7 +131,8 @@ BOOST_AUTO_TEST_SUITE(AdmmTests)
     }
 
     BOOST_AUTO_TEST_CASE(FullRun) {
-        auto R = GridRangeRegularizer<1>{std::vector<int>{2}, 2, 1, 1, 1.0, 1.0}; 
+        auto ep = TruncatedL1{1.0, 1.0};
+        auto R = GridRangeRegularizer<1, TruncatedL1>{std::vector<int>{2}, 2, 1, ep, 1.0};
         
         DeconvolveParams params;
         real_1d_array hessianDiag;

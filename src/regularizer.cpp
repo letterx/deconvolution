@@ -22,8 +22,8 @@ void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<
     }
 }
 
-template <int D>
-double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const {
+template <int D, class EP>
+double GridRegularizer<D, EP>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const {
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;
     std::mutex objectiveMutex;
@@ -74,7 +74,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     currLabels[lCurr] = _getLabel(idx, lCurr);
                     double maxMessage = std::numeric_limits<double>::lowest();
                     for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                        labelCosts[lPrev] = -_edgeFn(prevLabels[lPrev], currLabels[lCurr])*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
+                        labelCosts[lPrev] = -_edgePotential.edgeFn(prevLabels[lPrev], currLabels[lCurr])*smoothingMult + m_L[(j-1)*_numLabels+lPrev];
                         maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                     }
                     double sumExp = 0;
@@ -99,7 +99,7 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
                     currLabels[lCurr] = _getLabel(idx, lCurr);
                     double maxMessage = std::numeric_limits<double>::lowest();
                     for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                        labelCosts[lPrev] = -(_edgeFn(currLabels[lCurr], prevLabels[lPrev]) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
+                        labelCosts[lPrev] = -(_edgePotential.edgeFn(currLabels[lCurr], prevLabels[lPrev]) - lambdaSlice[(j+1)*_numLabels+lPrev])*smoothingMult + m_R[(j+1)*_numLabels+lPrev];
                         maxMessage = std::max(maxMessage, labelCosts[lPrev]);
                     }
                     double sumExp = 0;
@@ -143,8 +143,8 @@ double GridRegularizer<D>::evaluate(int subproblem, const double* lambda_a, doub
     return objective;
 }
 
-template <int D>
-double GridRegularizer<D>::primal(const double* x, double* gradient) const {
+template <int D, class EP>
+double GridRegularizer<D, EP>::primal(const double* x, double* gradient) const {
     double objective = 0;
     const auto X = boost::const_multi_array_ref<double, D>{x, _extents};
 
@@ -162,17 +162,17 @@ double GridRegularizer<D>::primal(const double* x, double* gradient) const {
             for (int i = 0; i < width-1; ++i) {
                 auto idx1 = baseIdx+i*stride;
                 auto idx2 = baseIdx+(i+1)*stride;
-                objective += _edgeFn(x[idx1], x[idx2]);
+                objective += _edgePotential.edgeFn(x[idx1], x[idx2]);
                 if (gradient)
-                    _edgeGrad(x[idx1], x[idx2], gradient[idx1], gradient[idx2]);
+                    _edgePotential.edgeGrad(x[idx1], x[idx2], gradient[idx1], gradient[idx2]);
             }
         }
     }
     return objective;
 }
 
-template <int D>
-double GridRegularizer<D>::fractionalPrimal(const std::vector<double>& primalMu_i) const {
+template <int D, class EP>
+double GridRegularizer<D, EP>::fractionalPrimal(const std::vector<double>& primalMu_i) const {
     double objective = 0;
     // use X array just to compute strides consistently with other functions
     const auto X = boost::const_multi_array_ref<double, D>{nullptr, _extents};
@@ -197,7 +197,7 @@ double GridRegularizer<D>::fractionalPrimal(const std::vector<double>& primalMu_
                 for (int l1 = 0; l1 < _numLabels; ++l1) {
                     for (int l2 = 0; l2 < _numLabels; ++l2) {
                         costs[l1*_numLabels+l2] 
-                            = _edgeFn(getLabel(var1, l1), getLabel(var2, l2));
+                            = _edgePotential.edgeFn(_getLabel(var1, l1), _getLabel(var2, l2));
                     }
                 }
                 objective += solveTransport(_numLabels, _numLabels, costs.data(),
@@ -209,19 +209,19 @@ double GridRegularizer<D>::fractionalPrimal(const std::vector<double>& primalMu_
     return objective;
 }
 
-template <int D>
-void GridRegularizer<D>::convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const {
+template <int D, class EP>
+void GridRegularizer<D, EP>::convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const {
     int n = x.num_elements();
     for (int i = 0; i < n; ++i) {
         double coord = 0;
         for (int l = 0; l < _numLabels; ++l)
-            coord += primalMu_i[i*_numLabels+l]*getLabel(i, l);
+            coord += primalMu_i[i*_numLabels+l]*_getLabel(i, l);
         x.data()[i] = coord;
     }
 }
 
-template <int D>
-void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
+template <int D, class EP>
+void GridRegularizer<D, EP>::sampleLabels(const Array<D>& x, double scale) {
     for (int i = 0; i < D; ++i)
         assert(static_cast<int>(x.shape()[i]) == _extents[i]);
     int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
@@ -237,7 +237,8 @@ void GridRegularizer<D>::sampleLabels(const Array<D>& x, double scale) {
 }
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \
-    template class GridRegularizer<d>;
+    template class GridRegularizer<d, TruncatedL1>; \
+    template class GridRegularizer<d, SmoothEdge>;
 INSTANTIATE_DECONVOLVE_REGULARIZER(1)
 INSTANTIATE_DECONVOLVE_REGULARIZER(2)
 INSTANTIATE_DECONVOLVE_REGULARIZER(3)

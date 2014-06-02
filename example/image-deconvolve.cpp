@@ -116,11 +116,12 @@ int main(int argc, char **argv) {
 
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
-    constexpr double smoothMax = 1.0;
+    constexpr double regularizerWidth = 3.0;
     constexpr double regularizerWeight = 100.0;
-    auto R = deconvolution::GridRangeRegularizer<2>{
+    auto ep = deconvolution::SmoothEdge{regularizerWeight, regularizerWidth};
+    auto R = deconvolution::GridRangeRegularizer<2, deconvolution::SmoothEdge>{
         std::vector<int>{width, height}, 
-        nLabels, labelScale, smoothMax, regularizerWeight, 255.0
+        nLabels, labelScale, ep, 255.0
     };
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);

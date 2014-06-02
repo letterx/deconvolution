@@ -1,5 +1,4 @@
 set(test-sources
-    test-admm.cpp
     test-project-simplex.cpp
     test-regularizer.cpp
     test-transport.cpp

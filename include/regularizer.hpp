@@ -47,17 +47,67 @@ class SmoothRegularizer : public Regularizer<D> {
         virtual double getLabel(int ver, int l) const override { return 0.0; }
 };
 
-template <int D>
+class TruncatedL1 {
+    public:
+        TruncatedL1(double smoothMax, double smoothWeight)
+            : _smoothMax(smoothMax)
+            , _smoothWeight(smoothWeight)
+        { }
+
+        double edgeFn(double l1, double l2) const {
+            return _smoothWeight*std::min(_smoothMax, fabs(l1 - l2));
+        }
+        void edgeGrad(double l1, double l2, double& g1, double& g2) const {
+            auto diff = fabs(l1 - l2);
+            if (diff > _smoothMax) {
+                return;
+            } else if (l1 > l2) {
+                g1 += _smoothWeight;
+                g2 += -_smoothWeight;
+            } else {
+                g1 += -_smoothWeight;
+                g2 += _smoothWeight;
+            }
+        }
+
+    private:
+        double _smoothMax;
+        double _smoothWeight;
+};
+
+class SmoothEdge {
+    public:
+        SmoothEdge(double weight, double width)
+            : _weight(weight)
+            , _recipWidth(1.0/width)
+        { }
+
+        double edgeFn(double l1, double l2) const {
+            auto diff = l1 - l2;
+            return _weight*(1.0 - 1.0/(1.0 + _recipWidth*diff*diff));
+        }
+        void edgeGrad(double l1, double l2, double& g1, double& g2) const {
+            auto diff = l1 - l2;
+            auto denom = 1.0 + _recipWidth*diff*diff;
+            auto grad = _weight*2*_recipWidth*diff / (denom*denom);
+            g1 += grad;
+            g2 += -grad;
+        }
+
+    private:
+        double _weight;
+        double _recipWidth;
+};
+
+template <int D, class EdgePotential>
 class GridRegularizer : public Regularizer<D> {
     public:
-        typedef std::function<double(double, double)> EdgeFn;
-        GridRegularizer(const std::vector<int>& extents, int numLabels, double labelScale, double smoothMax, double smoothWeight)
+        GridRegularizer(const std::vector<int>& extents, int numLabels, double labelScale, const EdgePotential& edgePotential)
             : _extents(extents)
             , _numLabels(numLabels)
             , _labelScale(labelScale)
             , _labels(std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; })*numLabels, 0)
-            , _smoothMax(smoothMax)
-            , _smoothWeight(smoothWeight)
+            , _edgePotential(edgePotential)
         { 
             assert(_extents.size() == D);
             int n = std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; });
@@ -68,22 +118,6 @@ class GridRegularizer : public Regularizer<D> {
     private:
         // Internal non-virtual functions to improve inlining
         double _getLabel(int var, int l) const { return _labels[var*_numLabels+l]; }
-        double _distance(double d) const {
-            return _smoothWeight*(1.0 - 1.0/(1.0 + _smoothMax*d*d));
-        }
-        double _distanceDeriv(double d) const {
-            return _smoothWeight*2*d*_smoothMax/(1.0+_smoothMax*d*d)*(1.0+_smoothMax*d*d);
-        }
-        double _edgeFn(double l1, double l2) const { 
-            return _distance(fabs(l1 - l2));
-            // FIXME: Reimplement proper lower-bound
-            //return _distance(std::max(fabs(l1 - l2) - _labelScale, 0));
-        }
-        void _edgeGrad(double l1, double l2, double& g1, double& g2) const {
-            double deriv = _distanceDeriv(l1 - l2);
-            g1 += deriv;
-            g2 += -deriv;
-        }
 
     public:
         virtual int numSubproblems() const override { return D; }
@@ -99,20 +133,18 @@ class GridRegularizer : public Regularizer<D> {
         int _numLabels;
         double _labelScale;
         std::vector<double> _labels;
-        double _smoothMax;
-        double _smoothWeight;
+        EdgePotential _edgePotential;
 };
 
-template <int D>
-class GridRangeRegularizer : public GridRegularizer<D> {
+template <int D, class EdgePotential>
+class GridRangeRegularizer : public GridRegularizer<D, EdgePotential> {
     public:
         GridRangeRegularizer(const std::vector<int>& extents,
                 int numLabels,
                 double labelScale,
-                double smoothMax,
-                double smoothWeight, 
+                const EdgePotential& edgePotential,
                 double maxLabel)
-            : GridRegularizer<D>(extents, numLabels, labelScale, smoothMax, smoothWeight)
+            : GridRegularizer<D, EdgePotential>(extents, numLabels, labelScale, edgePotential)
             , _maxLabel(maxLabel)
         { }
 
