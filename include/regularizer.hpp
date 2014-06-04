@@ -99,6 +99,60 @@ class SmoothEdge {
         double _recipWidth;
 };
 
+class L2Edge {
+    public:
+        L2Edge(double weight)
+            : _weight(weight)
+        { }
+
+        double edgeFn(double l1, double l2) const {
+            auto diff = l1 - l2;
+            return _weight*(diff*diff);
+        }
+        void edgeGrad(double l1, double l2, double& g1, double& g2) const {
+            auto diff = l1 - l2;
+            g1 += 2.0*diff;
+            g1 -= 2.0*diff;
+        }
+
+    private:
+        double _weight;
+};
+
+template <class E1, class E2>
+class ConvexCombEdge {
+    public:
+        ConvexCombEdge(const E1& e1, const E2& e2, double alpha)
+            : _e1(e1)
+            , _e2(e2)
+            , _alpha(alpha)
+        { }
+
+        double edgeFn(double l1, double l2) const {
+            return _alpha*_e1.edgeFn(l1, l2) + (1.0-_alpha)*_e2.edgeFn(l1, l2);
+        }
+        void edgeGrad(double l1, double l2, double& g1, double& g2) const {
+            double g1tmp = 0.0;
+            double g2tmp = 0.0;
+            _e1.edgeGrad(l1, l2, g1tmp, g2tmp);
+            g1 += _alpha*g1tmp;
+            g2 += _alpha*g2tmp;
+
+            g1tmp = 0.0;
+            g2tmp = 0.0;
+            _e2.edgeGrad(l1, l2, g1tmp, g2tmp);
+            g1 += (1.0-_alpha)*g1tmp;
+            g2 += (1.0-_alpha)*g2tmp;
+
+        }
+
+    private:
+        E1 _e1;
+        E2 _e2;
+        double _alpha;
+};
+
+
 template <int D, class EdgePotential>
 class GridRegularizer : public Regularizer<D> {
     public:

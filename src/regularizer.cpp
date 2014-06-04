@@ -238,7 +238,8 @@ void GridRegularizer<D, EP>::sampleLabels(const Array<D>& x, double scale) {
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \
     template class GridRegularizer<d, TruncatedL1>; \
-    template class GridRegularizer<d, SmoothEdge>;
+    template class GridRegularizer<d, SmoothEdge>; \
+    template class GridRegularizer<d, ConvexCombEdge<SmoothEdge, L2Edge>>;
 INSTANTIATE_DECONVOLVE_REGULARIZER(1)
 INSTANTIATE_DECONVOLVE_REGULARIZER(2)
 INSTANTIATE_DECONVOLVE_REGULARIZER(3)

@@ -155,9 +155,30 @@ int main(int argc, char **argv) {
     auto startTime = std::chrono::system_clock::now();
     std::cout << "Deconvolving\n";
     deconvolution::Array<2> deblur{boost::extents[width][height]};
-    if (method == std::string("primal"))
-        deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, R, progressCallback, params, s);
-    else if (method == std::string("dual"))
+    if (method == std::string("primal")) {
+        const int numAnnealIters = 10;
+        deblur = y;
+        for (int iter = 0; iter <= numAnnealIters; ++iter) {
+            double alpha = static_cast<double>(iter)/static_cast<double>(numAnnealIters);
+            typedef deconvolution::ConvexCombEdge<deconvolution::SmoothEdge, deconvolution::L2Edge> AnnealEdge;
+            auto epSmooth = AnnealEdge{ep, deconvolution::L2Edge{1.0/regularizerWidth}, alpha};
+            auto Rsmooth = deconvolution::GridRangeRegularizer<2, AnnealEdge>{
+                std::vector<int>{width, height},
+                    nLabels, labelScale, epSmooth, 255.0 };
+
+            deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, Rsmooth, progressCallback, params, s, deblur);
+
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    image.at<unsigned char>(j,i) = deblur[i][j];
+                }
+            }
+
+            cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
+            cv::imshow("Display Window", image);
+            cv::waitKey(1);
+        }
+    } else if (method == std::string("dual"))
         deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
     else {
         std::cout << "Unknown optimization method!\n";

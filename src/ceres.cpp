@@ -53,7 +53,11 @@ ceres::Solver::Summary SolveUsingCeres(const GradientProblem& gradient_problem,
 
 
 void ceresSolve(GradientProblem& problem, double* parameters) {
-  google::InitGoogleLogging("ceresSolve");
+    static bool doInit = true;
+    if (doInit) {
+      google::InitGoogleLogging("ceresSolve");
+      doInit = false;
+    }
 
   ceres::Solver::Options options;
   options.max_num_iterations = 500;

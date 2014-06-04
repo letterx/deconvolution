@@ -110,9 +110,10 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
         Regularizer<D>& R,
         ProgressCallback<D>& pc,
         DeconvolveParams& params,
-        DeconvolveStats& s) {
+        DeconvolveStats& s,
+        const Array<D>& initX) {
     Array<D> b = 2*Ht(y);
-    Array<D> x = b;
+    Array<D> x = initX;
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { return Ht(H(x)) + 0.03*x; };
     double constantTerm = dot(y, y);
 
@@ -149,7 +150,7 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
 }
 
 #define INSTANTIATE_DECONVOLVE(d) \
-    template Array<d> DeconvolvePrimal<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s); \
+    template Array<d> DeconvolvePrimal<d>(const Array<d>& y, const LinearSystem<d>& H, const LinearSystem<d>& Q, Regularizer<d>& R, ProgressCallback<d>& pc, DeconvolveParams& params, DeconvolveStats& s, const Array<d>& initX);
 
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)
