@@ -10,6 +10,40 @@
 #include "convolve.hpp"
 #include "psnr.hpp"
 
+cv::Mat matFromArray(const deconvolution::Array<2>& a) {
+    int width = a.shape()[0];
+    int height = a.shape()[1];
+    cv::Mat m{height, width, CV_8UC1};
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            m.at<unsigned char>(j,i) = a[i][j];
+        }
+    }
+    return m;
+}
+
+deconvolution::Array<2> arrayFromMat(const cv::Mat& m) {
+    int width = m.cols;
+    int height = m.rows;
+    deconvolution::Array<2> a{boost::extents[width][height]};
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            a[i][j] = m.at<unsigned char>(j,i);
+        }
+    }
+    return a;
+}
+
+void showImage(const cv::Mat& m) {
+    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
+    cv::imshow("Display Window", m);
+    cv::waitKey(1);
+}
+
+void showImage(const deconvolution::Array<2>& a) {
+    showImage(matFromArray(a));
+}
+
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
     // Variables set by program options
@@ -22,7 +56,7 @@ int main(int argc, char **argv) {
     double sigma = 0.0;
     double noiseSigma = 0.0;
     double regularizerWidth = 0.0;
-    double regularizerWeight = 50.0;
+    double regularizerWeight = 0.0;
     std::string method;
 
     po::options_description options_desc("Deconvolve arguments");
@@ -30,11 +64,11 @@ int main(int argc, char **argv) {
         ("help", "Display this help message")
         ("image", po::value<std::string>(&basename)->required(), "Name of image (without extension)")
         ("extension,e", po::value<std::string>(&extension)->default_value("pgm"), "Extension of filename")
-        ("rweight", po::value<double>(&regularizerWeight)->default_value(50.0), "Regularizer weight")
+        ("rweight", po::value<double>(&regularizerWeight)->default_value(5.0), "Regularizer weight")
         ("rwidth", po::value<double>(&regularizerWidth)->default_value(9.0), "Regularizer width")
         ("ksigma,s", po::value<double>(&sigma)->default_value(5.0), "Kernel sigma")
         ("nsigma", po::value<double>(&noiseSigma)->default_value(5.0), "Noise sigma")
-        ("method,m", po::value<std::string>(&method)->default_value("dual"), "Optimization method")
+        ("method,m", po::value<std::string>(&method)->default_value("primal"), "Optimization method, one of [primal|dual]")
     ;
 
     po::positional_options_description popts_desc;
@@ -73,14 +107,7 @@ int main(int argc, char **argv) {
     auto height = image.rows;
     assert(image.type() == CV_8UC1);
 
-    deconvolution::Array<2> y{boost::extents[width][height]};
-
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            y[i][j] = image.at<unsigned char>(j,i);
-        }
-    }
-
+    // Set up gaussian blur kernel
     deconvolution::Array<2> ker{boost::extents[kerSize][kerSize]};
     std::vector<int> kerBase{-10, -10};
     ker.reindex(kerBase);
@@ -96,26 +123,19 @@ int main(int argc, char **argv) {
 
 
 
-    std::cout << "Convolving\n";
+    auto y = arrayFromMat(image);
     auto blur = convolveFFT(y, ker);
 
+    // Adding iid noise at each pixel
     std::mt19937 randGen;
     std::normal_distribution<double> norm{0, noiseSigma};
     for (int i = 0; i < width; ++i)
         for (int j = 0; j < height; ++j)
             blur[i][j] += norm(randGen);
 
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            image.at<unsigned char>(j,i) = blur[i][j];
-        }
-    }
-
-    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-    cv::imshow("Display Window", image);
-    cv::waitKey(1);
-
-    cv::imwrite(blurfilename.c_str(), image); 
+    auto blurImage = matFromArray(blur);
+    showImage(blurImage);
+    cv::imwrite(blurfilename.c_str(), blurImage); 
 
 
     deconvolution::LinearSystem<2> H = 
@@ -134,22 +154,13 @@ int main(int argc, char **argv) {
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
     deconvolution::ProgressCallback<2> progressCallback = 
         [&](const deconvolution::Array<2>& x, double dual, double primalData, double primalReg, double smoothing) {
-            for (int i = 0; i < width; ++i) {
-                for (int j = 0; j < height; ++j) {
-                    image.at<unsigned char>(j,i) = x[i][j];
-                }
-            }
-
-            auto p = psnrMse(image, orig);
-
+            auto xMat = matFromArray(x);
+            auto p = psnrMse(xMat, orig);
             std::cout << "\tPSNR: " << p.first << "\n";
-
-            cv::imshow("Display Window", image);
-            cv::waitKey(1);
+            showImage(xMat);
         };
 
     deconvolution::DeconvolveParams params {};
-    //params.maxIterations = 50;
     deconvolution::DeconvolveStats s{};
 
     auto startTime = std::chrono::system_clock::now();
@@ -167,16 +178,7 @@ int main(int argc, char **argv) {
                     nLabels, labelScale, epSmooth, 255.0 };
 
             deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, Rsmooth, progressCallback, params, s, deblur);
-
-            for (int i = 0; i < width; ++i) {
-                for (int j = 0; j < height; ++j) {
-                    image.at<unsigned char>(j,i) = deblur[i][j];
-                }
-            }
-
-            cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-            cv::imshow("Display Window", image);
-            cv::waitKey(1);
+            showImage(deblur);
         }
     } else if (method == std::string("dual"))
         deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
@@ -192,26 +194,9 @@ int main(int argc, char **argv) {
     std::cout << "Data time:        " << s.dataTime << "\n";
     std::cout << "Unary time:       " << s.unaryTime << "\n";
 
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            image.at<unsigned char>(j,i) = deblur[i][j];
-        }
-    }
-
-    cv::imwrite(outfilename.c_str(), image); 
-
-    cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
-    cv::imshow("Display Window", image);
-    cv::waitKey(3000);
-
-    auto reblur = convolveFFT(deblur, ker);
-
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            image.at<unsigned char>(j,i) = reblur[i][j];
-        }
-    }
-
+    auto deblurImage = matFromArray(deblur);
+    cv::imwrite(outfilename.c_str(), deblurImage); 
+    showImage(deblurImage);
 
     return 0;
 }

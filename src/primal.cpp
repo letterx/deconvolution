@@ -125,27 +125,6 @@ Array<D> DeconvolvePrimal(const Array<D>& y,
     auto algData = PrimalLbfgsData<D>{Q, b, x, R, constantTerm, pc};
     ceresSolve(algData, x.data());
 
-/*
- *    real_1d_array lbfgsX;
- *    lbfgsX.setcontent(numPrimalVars, x.data());
- *
- *    minlbfgsstate lbfgsState;
- *    minlbfgsreport lbfgsReport;
- *
- *    minlbfgscreate(10, lbfgsX, lbfgsState);
- *    minlbfgssetxrep(lbfgsState, true);
- *    minlbfgssetcond(lbfgsState, 1e-5, 0.0, 0, 1000);
- *
- *
- *    std::cout << "Begin lbfgs\n";
- *    minlbfgsoptimize(lbfgsState, lbfgsEvaluate<D>, lbfgsProgress<D>, &algData);
- *    minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
- *
- *    for (int i = 0; i < numPrimalVars; ++i) {
- *        x.data()[i] = lbfgsX.getcontent()[i];
- *    }
- */
-
     return x;
 }
 
