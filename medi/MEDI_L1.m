@@ -38,7 +38,7 @@ mask = dataterm_mask(data_weighting_mode, tempn, Mask);
 
 H  = @(arg) flatten(mask.*(real(ifftn(D.*fftn(reshape(arg, matrix_size)))))); 
 
-x = zeros(1, prod(matrix_size));
+x = zeros(prod(matrix_size), 1);
 
 m = flatten(iMag);
 rdf = flatten(RDF);
@@ -46,20 +46,20 @@ p = .7;
 K = .8;
 KK = 10;
 
-A = @(arg) [rdf-H(x), grad(x), grad(x)-grad(m)]
+A = @(arg) vertcat(rdf-H(x), grad(x), grad(x)-grad(m));
 
 %% IRLS
 x = QSM_IRLS(A, solve, x, p, K, KK);
 
 %convert x to ppm
-x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
+x = reshape(x, size(Mask))/(2*pi*delta_TE*CF)*1e6.*Mask;
 
 store_QSM_results(x, iMag, RDF, Mask,...
                   'Norm', 'L1','Method','MEDIN','Lambda',lambda,...
                   'SMV',smv,'Radius',radius,'IRLS',merit,...
                   'voxel_size',voxel_size,'matrix_size',matrix_size,...
                   'Data_weighting_mode',data_weighting_mode,'Gradient_weighting_mode',gradient_weighting_mode,...  
-                  'L1_tol_ratio',tol_norm_ratio, 'Niter',iter,...
+                  'L1_tol_ratio',tol_norm_ratio,...
                   'CG_tol',cg_tol,'CG_max_iter',cg_max_iter,...
                   'B0_dir', B0_dir);
 

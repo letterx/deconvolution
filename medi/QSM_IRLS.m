@@ -23,14 +23,15 @@ for k = 1:KK                                 % Iterate
 
     % define errors
     e = A(x);
+
     b = zeros(size(e));
 
     % define weights
-    w = [ones(1, xlen), abs(e(xlen+1:end)).^((pk-2)/2)];
+    w = vertcat(ones(xlen, 1), abs(e(xlen+1:end)).^((pk-2)/2));
     W  = reshape(w./sum(w), size(e));
 
     % solve the weighted least squares problem
-    [x1, res, iter]  = solve(A, b, W, x0)
+    x1  = solve(A, b, W, x0);
 
     % update rules and records
     q  = 1/(pk-1);                            % Newton's parameter
@@ -38,3 +39,5 @@ for k = 1:KK                                 % Iterate
       else x = x1; nn=2; end                 % no partial update for p<2
     ee = norm(e,nn);   E = [E ee];            % Error at each iteration
 end
+
+disp(E);
