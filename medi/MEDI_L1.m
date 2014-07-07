@@ -35,15 +35,15 @@ grad = @(arg) cgrad(arg, voxel_size);
 solve = @(A, b, w) real(wcgsolve(A, b, w, cg_tol, cg_max_iter, 0));
 H  = @(arg) m.*(real(ifftn(D.*fftn(arg)))); 
 
-x = zeros(prod(matrix_size))
-m = reshape(iMag, size(x))
-rdf = reshape(RDF, size(x))
-p = .7
+x = zeros(prod(matrix_size));
+m = reshape(iMag, size(x));
+rdf = reshape(RDF, size(x));
+p = .7;
 
-A = @(x) [rdf-H(x), grad(x), grad(x)-grad(m)]
+A = @(x) [rdf-H(x), grad(x), grad(x)-grad(m)];
 
 %% IRLS
-QSM_IRLS(A, solve, x, p, K, KK)
+x = QSM_IRLS(A, solve, x, p, K, KK);
 
 %convert x to ppm
 x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
