@@ -1,7 +1,8 @@
 % wcgsolve.m
 %
 % Solve a symmetric positive definite system Ax = b with weights via conjugate gradients.
-
+%
+% http://en.wikipedia.org/wiki/Conjugate_gradient_method
 function [x, res, iter] = wcgsolve(A, b, w, tol, maxiter, verbose, x0)
 
 matrix_size=size(b);
@@ -30,14 +31,13 @@ bestx = x;
 bestres = sqrt(delta/delta0); 
 while ((numiter < maxiter) & (delta > tol^2*delta0))
 
-  % q = w*A*d?
+  % q = w*A*d
   if (implicit), q = w*A(reshape(d,matrix_size)); q=q(:);  else, q = w*A*d;  end
  
   alpha = delta/(d'*q);
   x = x + alpha*d;
   
   if (mod(numiter+1,50) == 0)
-    % r = w*(b - Aux*x)
     if (implicit), r = w*b - w*reshape(A(reshape(x,matrix_size)),size(b));  else, r = w*b - w*A*x;  end
   else
     r = r - alpha*q;

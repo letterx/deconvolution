@@ -5,7 +5,7 @@
 %  For 2<p<infty, use homotopy parameter K = 1.01 to 2
 %  For 0<p<2, use K = approx 0.7 - 0.9
 %  csb 10/20/2012
-function x = QSM_IRLS(A, x, p, K, KK)
+function x = QSM_IRLS(A, solve, x, p, K, KK)
     % defaults
     if nargin < 5, KK=10;  end;
     if nargin < 4, K = 1.5;  end;
@@ -27,16 +27,13 @@ L_2 solution
 
         % define weights
         w = [ones(1, xlen), abs(e(xlen+1:end)).^((pk-2)/2)];
-
-        solve(H, b)
-
         W  = diag(w/sum(w));                      % Normalize weight matrix
+        disp(w);
 
         % solve the weighted least squares problem
-        WA = W*A;                                 % apply weights
         [x1, res, iter]  = solve(A, b, w)
 
-
+        % update rules and records
         q  = 1/(pk-1);                            % Newton's parameter
         if p > 2, x = q*x1 + (1-q)*x; nn=p;       % partial update for p>2
           else x = x1; nn=2; end                 % no partial update for p<2

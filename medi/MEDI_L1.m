@@ -32,7 +32,7 @@ div = @cdiv;
 
 %% IRLS settings
 grad = @(arg) cgrad(arg, voxel_size);
-solve = @(A, b) real(cgsolve(A, b, cg_tol, cg_max_iter, 0));
+solve = @(A, b, w) real(wcgsolve(A, b, w, cg_tol, cg_max_iter, 0));
 H  = @(arg) m.*(real(ifftn(D.*fftn(arg))));
 
 x = zeros(prod(matrix_size))
