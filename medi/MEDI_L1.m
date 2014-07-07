@@ -40,7 +40,7 @@ m = reshape(iMag, size(x))
 rdf = reshape(RDF, size(x))
 p = .7
 
-A = @(x) [(rdf-H(x)).^2, grad(x).^2, (grad(x)-grad(m)).^2]
+A = @(x) [rdf-H(x), grad(x), grad(x)-grad(m)]
 
 %% IRLS
 QSM_IRLS(A, solve, x, p, K, KK)
