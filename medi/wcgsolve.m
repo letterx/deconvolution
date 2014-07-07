@@ -20,7 +20,7 @@ implicit = isa(A,'function_handle');
 if (nargin < 6)
     r = b;
 else
-    if (implicit), r = b - w*A(reshape(x,matrix_size)); r=r(:);  else, r = w*(b - A*x);  end
+    if (implicit), r = w*b - w*A(reshape(x,matrix_size)); r=r(:);  else, r = w*(b - A*x);  end
 end
 d = r;
 delta = r'*r;
