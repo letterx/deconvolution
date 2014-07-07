@@ -32,23 +32,21 @@ div = @cdiv;
 
 %% IRLS settings
 
-grad = @(arg) reshape(cgrad(reshape(arg, matrix_size), voxel_size), 1, []);
+grad = @(arg) flatten(cgrad(reshape(arg, matrix_size), voxel_size));
 solve = @(A, b, w, x0) real(wcgsolve(A, b, w, cg_tol, cg_max_iter, 0, x0));
 mask = dataterm_mask(data_weighting_mode, tempn, Mask);
 
-disp(matrix_size)
-disp(prod(matrix_size))
-H  = @(arg) reshape(mask.*(real(ifftn(D.*fftn(reshape(arg, matrix_size))))), 1, []); 
+H  = @(arg) flatten(mask.*(real(ifftn(D.*fftn(reshape(arg, matrix_size)))))); 
 
 x = zeros(1, prod(matrix_size));
 
-m = reshape(iMag, size(x));
-rdf = reshape(RDF, size(x));
+m = flatten(iMag);
+rdf = flatten(RDF);
 p = .7;
 K = .8;
 KK = 10;
 
-A = @(x) [rdf-H(x), grad(x), grad(x)-grad(m)];
+A = @(arg) [rdf-H(x), grad(x), grad(x)-grad(m)]
 
 %% IRLS
 x = QSM_IRLS(A, solve, x, p, K, KK);

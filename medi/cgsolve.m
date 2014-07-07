@@ -30,7 +30,6 @@ function [x, res, iter] = cgsolve(A, b, w, tol, maxiter, verbose, x0)
 matrix_size=size(b);
 b=b(:);
 
-
 if (nargin < 6)
     x = zeros(length(b),1);
 else 
