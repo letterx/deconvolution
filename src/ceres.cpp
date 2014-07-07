@@ -65,6 +65,7 @@ void ceresSolve(GradientProblem& problem, double* parameters) {
   options.line_search_direction_type = ceres::LBFGS;
   options.line_search_interpolation_type = ceres::CUBIC;
   options.minimizer_progress_to_stdout = true;
+  options.max_lbfgs_rank = 20;
 
   ceres::Solver::Summary summary =
       SolveUsingCeres(problem, options, parameters);

@@ -30,7 +30,7 @@
 %   Modified by Tian Liu and Shuai Wang on 2011.03.28 add voxel_size in grad and div
 %   Last modified by Tian Liu on 2013.07.24
 
-function [x, D, m, RDF, cost_reg_history, cost_data_history] = MEDI_Dual(varargin)
+function [x, cost_reg_history, cost_data_history] = MEDI_Dual(varargin)
 
 [lambda iFreq RDF N_std iMag Mask matrix_size matrix_size0 voxel_size delta_TE CF B0_dir merit smv radius data_weighting gradient_weighting Debug_Mode] = parse_QSM_input(varargin{:});
 
@@ -75,36 +75,21 @@ cost_reg_history = zeros(1,max_iter);
 
 tic
 
-H  = @(arg) m.*(real(ifftn(D.*fftn(arg))));
-Ht = @(arg) real(ifftn(D.*fftn(arg.*m)));
-
-function progress(x, dual, primalData, primalReg, smoothing)
+function progress(primal)
     iter = iter+1;
     time = toc;
-    fprintf('Iteration %d\t dual: %4.2f\tData: %4.2f\tReg: %4.2f\tSmoothing: %4.2f\ttime %4.2f\n', iter, dual, primalData, primalReg, smoothing, time);
-    if (iter > 100)
-        error('maxiter reached')
-    end
+    fprintf('Iteration %d\t value: %8.4f\ttime%8.4f\n', iter, primal, time);
 end
 
-deconvolveParams = struct();
-deconvolveParams.progress = @progress;
-deconvolveParams.maxIter = 100;
-deconvolveParams.dataSmoothing = 0.001;
-deconvolveParams.smoothing = 100;
-deconvolveParams.minSmoothing = 1;
-deconvolveParams.smoothWeight = 10;
-deconvolveParams.smoothMax = 100.0;
+H  = @(x) m.*(real(ifftn(D.*fftn(x))));
+Ht = @(y) real(ifftn(D.*fftn(y.*m)));
 
 fprintf('Begin deconvolveDual\n');
-x = deconvolveDual(H, Ht, m.*RDF, deconvolveParams);
+x = deconvolveDual(H, Ht, m.*RDF, @progress);
 fprintf('End deconvolveDual\n');
 
-wres = m.*(real(ifftn(D.*fftn(x))) - RDF);
-fprintf('Final data term: %f\n', norm(wres(:),2)^2);
-
 %convert x to ppm
-% x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
+x = x/(2*pi*delta_TE*CF)*1e6.*Mask;
 
 if (matrix_size0)
     x = x(1:matrix_size0(1), 1:matrix_size0(2), 1:matrix_size0(3));

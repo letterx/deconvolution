@@ -196,6 +196,8 @@ int main(int argc, char **argv) {
 
     auto deblurImage = matFromArray(deblur);
     cv::imwrite(outfilename.c_str(), deblurImage); 
+    auto p = psnrMse(deblurImage, orig);
+    std::cout << "PSNR: " << p.first << "\n";
     showImage(deblurImage);
 
     return 0;
