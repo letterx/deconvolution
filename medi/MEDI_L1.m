@@ -31,14 +31,22 @@ D=dipole_kernel(matrix_size, voxel_size, B0_dir);
 div = @cdiv;
 
 %% IRLS settings
-grad = @(arg) cgrad(arg, voxel_size);
-solve = @(A, b, w) real(wcgsolve(A, b, w, cg_tol, cg_max_iter, 0));
-H  = @(arg) m.*(real(ifftn(D.*fftn(arg)))); 
+
+grad = @(arg) reshape(cgrad(reshape(arg, matrix_size), voxel_size), 1, []);
+solve = @(A, b, w, x0) real(wcgsolve(A, b, w, cg_tol, cg_max_iter, 0, x0));
+mask = dataterm_mask(data_weighting_mode, tempn, Mask);
+
+disp(matrix_size)
+disp(prod(matrix_size))
+H  = @(arg) reshape(mask.*(real(ifftn(D.*fftn(reshape(arg, matrix_size))))), 1, []); 
 
 x = zeros(1, prod(matrix_size));
+
 m = reshape(iMag, size(x));
 rdf = reshape(RDF, size(x));
 p = .7;
+K = .8;
+KK = 10;
 
 A = @(x) [rdf-H(x), grad(x), grad(x)-grad(m)];
 

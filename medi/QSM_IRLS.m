@@ -10,13 +10,12 @@ function x = QSM_IRLS(A, solve, x, p, K, KK)
     if nargin < 5, KK=10;  end;
     if nargin < 4, K = 1.5;  end;
     if nargin < 3, p = 10; end;
-    pk = 2;                                      % Initial homotopy value
-L_2 solution
+    pk = 2;                                      % Initial homotopy value L_2 solution
     E = [];
 
     % define basic parameters
-    xlen = length(x)
-    b = zeros(1, length(x))
+    x0 = zeros(size(x));
+    xlen = numel(x);
 
     for k = 1:KK                                 % Iterate
         if p >= 2, pk = min([p, K*pk]);           % Homotopy change of p
@@ -24,14 +23,14 @@ L_2 solution
 
         % define errors
         e = A(x);
+        b = zeros(size(e));
 
         % define weights
         w = [ones(1, xlen), abs(e(xlen+1:end)).^((pk-2)/2)];
-        W  = diag(w/sum(w));                      % Normalize weight matrix
-        disp(w);
+        W  = reshape(w./sum(w), size(e));
 
         % solve the weighted least squares problem
-        [x1, res, iter]  = solve(A, b, w)
+        [x1, res, iter]  = solve(A, b, W, x0)
 
         % update rules and records
         q  = 1/(pk-1);                            % Newton's parameter
