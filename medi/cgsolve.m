@@ -25,7 +25,7 @@
 % Modified for QSM by Ildar Khalidov, WCMC
 % Last Modified by Tian Liu on 2011.02.02
 
-function [x, res, iter] = cgsolve(A, b, w, tol, maxiter, verbose, x0)
+function [x, res, iter] = cgsolve(A, b, tol, maxiter, verbose, x0)
 
 matrix_size=size(b);
 b=b(:);

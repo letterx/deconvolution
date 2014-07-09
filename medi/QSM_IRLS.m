@@ -5,39 +5,43 @@
 %  For 2<p<infty, use homotopy parameter K = 1.01 to 2
 %  For 0<p<2, use K = approx 0.7 - 0.9
 %  csb 10/20/2012
-function x = QSM_IRLS(A, solve, x, p, K, KK)
+function x = QSM_IRLS(A, At, b, solve, x, p, K, KK)
 % defaults
 if nargin < 5, KK=10;  end;
 if nargin < 4, K = 1.5;  end;
 if nargin < 3, p = 10; end;
-pk = 2;                                      % Initial homotopy value L_2 solution
 E = [];
-
+epsilon = .5;
 % define basic parameters
-x0 = zeros(size(x));
-xlen = numel(x);
+xnum = numel(x);
 
-for k = 1:KK                                 % Iterate
-    if p >= 2, pk = min([p, K*pk]);           % Homotopy change of p
-      else pk = max([p, K*pk]); end
-
+for k = 1:KK
     % define errors
-    e = A(x);
+    e = A(x)-b;
+    E = [E norm(e)];
+%    disp('cut')
+%    disp(e(1:2))
+%    disp(e(xnum+1:xnum+2))
 
-    b = zeros(size(e));
+    % prevents weights from going to infinity
+    for i = xnum+1:numel(e)
+        if abs(e(i)) < epsilon
+            e(i) = epsilon;
+        end
+    end
 
     % define weights
-    w = vertcat(ones(xlen, 1), abs(e(xlen+1:end)).^((pk-2)/2));
-    W  = reshape(w./sum(w), size(e));
+    w = vertcat(ones(xnum, 1), abs(e(xnum+1:end)).^((p-2)/2));
+
+%    disp(w(1:2))
+%    disp(w(xnum+1:xnum+2))
+    W  = w;
+%    disp(W(1:2))
+%    disp(W(xnum+1:xnum+2))
+
+    linearoperator = @(arg) flatten(At (W .* W .* A(arg)));
+    constant = flatten(At(W .* b));
 
     % solve the weighted least squares problem
-    x1  = solve(A, b, W, x0);
-
-    % update rules and records
-    q  = 1/(pk-1);                            % Newton's parameter
-    if p > 2, x = q*x1 + (1-q)*x; nn=p;       % partial update for p>2
-      else x = x1; nn=2; end                 % no partial update for p<2
-    ee = norm(e,nn);   E = [E ee];            % Error at each iteration
+    x  = solve(linearoperator, constant, x);
 end
-
-disp(E);
