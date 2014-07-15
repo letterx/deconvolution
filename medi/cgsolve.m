@@ -39,7 +39,6 @@ end
 if (nargin < 5), verbose = 1; end
 
 implicit = isa(A,'function_handle');
-
 if (nargin < 6)
     r = b;
 else

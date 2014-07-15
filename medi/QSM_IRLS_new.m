@@ -16,7 +16,9 @@ epsilon = 10^-2;
 xnum = numel(x);
 
 % initial starting point
-x  = solve(A, b, x);
+linop = @(arg) At(A(arg));
+const = At(b);
+x  = solve(linop, const, x);
 
 for k = 1:KK
     % define errors
@@ -31,24 +33,12 @@ for k = 1:KK
 %    end
 
     % define weights
-    w = flatten(abs(e).^((p-2)/2));
-    W  = w/sum(w);
-
-    disp('before cut')
-    disp(norm(A(x)-b, p))
-    disp(norm(W.*(A(x)-b), 2))
+    w = flatten(abs(e(xnum+1:end)).^((p-2)/2));
+    W  = vertcat(ones(xnum, 1)/xnum, w/sum(w));
 
     % solve the weighted least squares problem
     linop = @(arg) At(W.*W.*A(arg));
     const = At(W.*W.*b);
+
     x  = solve(linop, const, x);
-
-    disp('cut')
-    disp(norm(A(x)-b, p))
-    disp(norm(W.*(A(x)-b), 2))
-    disp(e(1:3))
-    disp(w(1:3))
-    disp(W(1:3))
-    disp(x(1:3))
-
 end

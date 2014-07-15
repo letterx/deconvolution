@@ -28,7 +28,6 @@ gradient_weighting_mode = gradient_weighting;
 tempn = double(N_std);
 D=dipole_kernel(matrix_size, voxel_size, B0_dir);
 
-
 %% Basic functions
 grad = @(arg) cgrad(reshape(arg, matrix_size), voxel_size);
 gm = grad(iMag);
@@ -44,7 +43,7 @@ H  = @(arg) flatten(mask.*(real(ifftn(D.*fftn(reshape(arg, matrix_size))))));
 
 %% IRLS settings
 rdf = flatten(RDF);
-p = 1;
+p = .8;
 KK = 10;
 
 %% Setup constants and linear operators
@@ -53,38 +52,24 @@ xnum = prod(matrix_size);
 
 A = @(arg) vertcat(H(arg), flatten(grad(arg)));
 
-At = @(arg) H(reshape(arg(1:xnum), matrix_size))' + ...
-flatten(div(reshape(arg(xnum+1:xnum+gradnum), gradsize)),1);
+At = @(arg) H(arg(1:xnum)) + ...
+flatten(div(arg(xnum+1:xnum+gradnum)));
 
-b = vertcat(rdf, zeros(gradnum, 1));
+gz = zeros(numel(grad(RDF)), 1);
+b = vertcat(rdf, gz);
 
 %% IRLS
-%x = QSM_IRLS(A, At, b, solve, x, p, K, KK);
-
-A = @(arg) H(arg);
-At = @(arg) H(arg);
-b = rdf;
-
-x = zeros(xnum, 1);
-linop = @(arg) A(arg);
-const = A(A(b));
-TE = solve(linop, const, x);
-
-x = zeros(xnum, 1);
-SQ  = solve(A, b, x);
-
 x = zeros(xnum, 1);
 IR = QSM_IRLS_new(A, At, b, solve, x, p, KK);
-
 
 % convert to ppm
 ppm = @(x) reshape(x, size(Mask))/(2*pi*delta_TE*CF)*1e6.*Mask;
 
-assignin('base', 'TE', ppm(TE));
-assignin('base', 'SQ', ppm(SQ));
-assignin('base', 'IR', ppm(IR));
+%assignin('base', 'TE', ppm(TE));
+%assignin('base', 'SQ', ppm(SQ));
+assignin('base', 'IR', reshape(IR, size(Mask))/1e2);
 assignin('base', 'RDF', RDF);
-
+assignin('base', 'Mask', Mask);
 %convert x to ppm
 x = ppm(x);
 store_QSM_results(x, iMag, RDF, Mask,...
