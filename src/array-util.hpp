@@ -34,6 +34,26 @@ arrayExtents(const A& array)
  * arrayMap
  */
 
+template <typename Fn, typename A1>
+typename std::enable_if<A1::dimensionality == 1, void>::type
+arrayMap(Fn f, A1 a1) {
+    auto i1 = a1.begin();
+    auto e1 = a1.end();
+    for (; i1 != e1; ++i1)
+        f(*i1);
+}
+
+
+template <typename Fn, typename A1>
+typename std::enable_if<(A1::dimensionality > 1), void>::type
+arrayMap(Fn f, A1 a1) {
+    auto i1 = a1.begin();
+    auto e1 = a1.end();
+    for (; i1 != e1; ++i1)
+        arrayMap(f, *i1);
+}
+
+
 template <typename Fn, typename A1, typename A2>
 typename std::enable_if<A1::dimensionality == 1, void>::type
 arrayMap(Fn f, A1 a1, A2 a2) {
