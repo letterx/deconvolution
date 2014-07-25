@@ -30,5 +30,39 @@ arrayExtents(const A& array)
 
 
 
+/*
+ * arrayMap
+ */
+
+template <typename Fn, typename A1, typename A2>
+typename std::enable_if<A1::dimensionality == 1, void>::type
+arrayMap(Fn f, A1 a1, A2 a2) {
+    static_assert(A1::dimensionality == A2::dimensionality, "Array dims must match");
+    auto i1 = a1.begin();
+    auto i2 = a2.begin();
+    auto e1 = a1.end();
+    for (; i1 != e1; ++i1, ++i2)
+        f(*i1, *i2);
+}
+
+
+template <typename Fn, typename A1, typename A2>
+typename std::enable_if<(A1::dimensionality > 1), void>::type
+arrayMap(Fn f, A1 a1, A2 a2) {
+    static_assert(A1::dimensionality == A2::dimensionality, "Array dims must match");
+    auto i1 = a1.begin();
+    auto i2 = a2.begin();
+    auto e1 = a1.end();
+    for (; i1 != e1; ++i1, ++i2)
+        arrayMap(f, *i1, *i2);
+}
+
+
+template <typename A1, typename A2>
+void plusEquals(A1& a1, const A2& a2) {
+    arrayMap([](double& x1, const double& x2) { x1 += x2; }, a1, a2);
+}
+
+
 
 #endif

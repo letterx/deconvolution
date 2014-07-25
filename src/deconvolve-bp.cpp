@@ -40,6 +40,10 @@ std::vector<Array<D+1>> allocLambda(const Shape& shape) {
 }
 
 template <int D>
+void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result);
+
+
+template <int D>
 Array<D> DeconvolveConvexBP(
         const Array<D>& y,
         const LinearSystem<D>& H,
@@ -64,7 +68,8 @@ Array<D> DeconvolveConvexBP(
     auto dualVars = std::vector<double>(numDualVars, 0.0);
     auto primalMu_i = std::vector<double>(numPrimalVars*R.numLabels(), 0.0);
 
-    std::vector<double> modifiedUnariesVec(numPrimalVars*R.numLabels(), 0.0);
+    auto modifiedUnaries = Array<D+1>{lambdaShape};
+    auto nu = Array<D>{shape};
 
     // Initialize x to 0 to find the least norm solution to Qx = b
     for (size_t i = 0; i < x.num_elements(); ++i) {
@@ -77,6 +82,10 @@ Array<D> DeconvolveConvexBP(
     while (!converged) {
 
        // Compute modifiedUnaries = unaries + sum of lambda - lambda_alpha
+       addUnaries(R, nu, modifiedUnaries);
+       for (int i = 0; i < D; ++i)
+           plusEquals(modifiedUnaries, lambda[i]);
+       
        // run min-marginals with modifiedUnaries
        // compute lambda as result of min-marginal - modified unary
        // update modifiedUnaries
