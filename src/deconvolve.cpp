@@ -389,8 +389,10 @@ Array<D> Deconvolve(const Array<D>& y,
                 break;
             }
         }
-        std::cout << "*** Resampling ***\n";
-        R.sampleLabels(x, 1.0);
+        /*
+         *std::cout << "*** Resampling ***\n";
+         *R.sampleLabels(x, 1.0);
+         */
     }
     return x;
 }
@@ -608,7 +610,6 @@ Array<D> DeconvolveADMM(const Array<D>& y,
 
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Qreg, b, x);
-    R.sampleLabels(x, 0.5);
     
     int admmIter = 0;
 

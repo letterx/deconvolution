@@ -15,10 +15,17 @@ class Regularizer {
         virtual int numSubproblems() const = 0;
         virtual int numLabels() const = 0;
         virtual double getLabel(int var, int l) const = 0;
+        /*
+         *virtual double getIntervalLB(int var, int l) const = 0;
+         *virtual double getIntervalUB(int var, int l) const = 0;
+         */
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const = 0;
         virtual double primal(const double* x, double* gradient) const = 0;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const = 0;
-        virtual void sampleLabels(const Array<D>& x, double scale) { };
+        /*
+         *virtual void setPartition(int nLabels, const Array<D>& lowerBounds, 
+         *        const Array<D>& upperBounds) = 0;
+         */
         virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const = 0;
 };
 
@@ -180,7 +187,6 @@ class GridRegularizer : public Regularizer<D> {
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
         virtual double primal(const double* x, double* gradient) const override;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override;
-        virtual void sampleLabels(const Array<D>& x, double scale) override;
         virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override;
     protected:
         std::vector<int> _extents;
@@ -202,7 +208,6 @@ class GridRangeRegularizer : public GridRegularizer<D, EdgePotential> {
             , _maxLabel(maxLabel)
         { }
 
-        virtual void sampleLabels(const Array<D>& x, double scale) override { }
         virtual double getLabel(int var, int l) const override {
             return _maxLabel*(static_cast<double>(l)/static_cast<double>(this->_numLabels));
         }

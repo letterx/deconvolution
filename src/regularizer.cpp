@@ -220,21 +220,23 @@ void GridRegularizer<D, EP>::convexCombination(const std::vector<double>& primal
     }
 }
 
-template <int D, class EP>
-void GridRegularizer<D, EP>::sampleLabels(const Array<D>& x, double scale) {
-    for (int i = 0; i < D; ++i)
-        assert(static_cast<int>(x.shape()[i]) == _extents[i]);
-    int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
-    for (int i = 0; i < n; ++i) {
-        double val = x.data()[i];
-        for (int l = 0; l < _numLabels; ++l) {
-            _labels[i*_numLabels+l] = val+scale*(l-(_numLabels-1)/2);
-            //_labels[i*_numLabels+l] = std::min(_labels[i*_numLabels+l], _numLabels*_labelScale);
-            //_labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
-        }
-    }
-    _labelScale = scale;
-}
+/*
+ *template <int D, class EP>
+ *void GridRegularizer<D, EP>::sampleLabels(const Array<D>& x, double scale) {
+ *    for (int i = 0; i < D; ++i)
+ *        assert(static_cast<int>(x.shape()[i]) == _extents[i]);
+ *    int n = std::accumulate(_extents.begin(), _extents.end(), 1, [](int i, int j) { return i*j; });
+ *    for (int i = 0; i < n; ++i) {
+ *        double val = x.data()[i];
+ *        for (int l = 0; l < _numLabels; ++l) {
+ *            _labels[i*_numLabels+l] = val+scale*(l-(_numLabels-1)/2);
+ *            //_labels[i*_numLabels+l] = std::min(_labels[i*_numLabels+l], _numLabels*_labelScale);
+ *            //_labels[i*_numLabels+l] = std::max(_labels[i*_numLabels+l], 0.0);
+ *        }
+ *    }
+ *    _labelScale = scale;
+ *}
+ */
 
 #define INSTANTIATE_DECONVOLVE_REGULARIZER(d) \
     template class GridRegularizer<d, TruncatedL1>; \
