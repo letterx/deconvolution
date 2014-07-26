@@ -34,9 +34,14 @@ arrayExtents(const A& array)
  * arrayMap
  */
 
+template <typename A>
+struct ArrayDim {
+    static const size_t value = std::remove_reference<A>::type::dimensionality;
+};
+
 template <typename Fn, typename A1>
-typename std::enable_if<A1::dimensionality == 1, void>::type
-arrayMap(Fn f, A1 a1) {
+typename std::enable_if<ArrayDim<A1>::value == 1, void>::type
+arrayMap(Fn f, A1&& a1) {
     auto i1 = a1.begin();
     auto e1 = a1.end();
     for (; i1 != e1; ++i1)
@@ -45,8 +50,8 @@ arrayMap(Fn f, A1 a1) {
 
 
 template <typename Fn, typename A1>
-typename std::enable_if<(A1::dimensionality > 1), void>::type
-arrayMap(Fn f, A1 a1) {
+typename std::enable_if<(ArrayDim<A1>::value > 1), void>::type
+arrayMap(Fn f, A1&& a1) {
     auto i1 = a1.begin();
     auto e1 = a1.end();
     for (; i1 != e1; ++i1)
@@ -55,9 +60,10 @@ arrayMap(Fn f, A1 a1) {
 
 
 template <typename Fn, typename A1, typename A2>
-typename std::enable_if<A1::dimensionality == 1, void>::type
-arrayMap(Fn f, A1 a1, A2 a2) {
-    static_assert(A1::dimensionality == A2::dimensionality, "Array dims must match");
+typename std::enable_if<ArrayDim<A1>::value == 1, void>::type
+arrayMap(Fn f, A1&& a1, A2&& a2) {
+    static_assert(ArrayDim<A1>::value == ArrayDim<A2>::value, 
+            "Array dims must match");
     auto i1 = a1.begin();
     auto i2 = a2.begin();
     auto e1 = a1.end();
@@ -67,9 +73,10 @@ arrayMap(Fn f, A1 a1, A2 a2) {
 
 
 template <typename Fn, typename A1, typename A2>
-typename std::enable_if<(A1::dimensionality > 1), void>::type
-arrayMap(Fn f, A1 a1, A2 a2) {
-    static_assert(A1::dimensionality == A2::dimensionality, "Array dims must match");
+typename std::enable_if<(ArrayDim<A1>::value > 1), void>::type
+arrayMap(Fn f, A1&& a1, A2&& a2) {
+    static_assert(ArrayDim<A1>::value == ArrayDim<A2>::value, 
+            "Array dims must match");
     auto i1 = a1.begin();
     auto i2 = a2.begin();
     auto e1 = a1.end();
