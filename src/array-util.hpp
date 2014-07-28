@@ -90,6 +90,11 @@ void plusEquals(A1& a1, const A2& a2) {
     arrayMap([](double& x1, const double& x2) { x1 += x2; }, a1, a2);
 }
 
+template <typename A1, typename A2>
+void minusEquals(A1& a1, const A2& a2) {
+    arrayMap([](double& x1, const double& x2) { x1 -= x2; }, a1, a2);
+}
+
 
 
 #endif

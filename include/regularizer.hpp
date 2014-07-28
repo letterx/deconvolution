@@ -20,6 +20,9 @@ class Regularizer {
          *virtual double getIntervalUB(int var, int l) const = 0;
          */
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const = 0;
+        virtual double minMarginal(int subproblem, 
+                const Array<D+1>& unaries,
+                Array<D+1>& marginals) const = 0;
         virtual double primal(const double* x, double* gradient) const = 0;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const = 0;
         /*
@@ -38,6 +41,9 @@ class DummyRegularizer : public Regularizer<D> {
         virtual double getLabel(int var, int l) const override { return l == 0 ? 0 : 255; }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override 
             { return 0; }
+        virtual double minMarginal(int subproblem, 
+                const Array<D+1>& unaries,
+                Array<D+1>& marginals) const { return 0; }
         virtual double primal(const double* x, double* gradient) const override { return 0; }
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override { return 0; }
         virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override { }
@@ -185,6 +191,9 @@ class GridRegularizer : public Regularizer<D> {
         virtual int numLabels() const override { return _numLabels; }
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
+        virtual double minMarginal(int subproblem, 
+                const Array<D+1>& unaries,
+                Array<D+1>& marginals) const override;
         virtual double primal(const double* x, double* gradient) const override;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override;
         virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override;

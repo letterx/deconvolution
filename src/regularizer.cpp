@@ -23,6 +23,91 @@ void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<
 }
 
 template <int D, class EP>
+double GridRegularizer<D, EP>::minMarginal(int subproblem, 
+        const Array<D+1>& unaries,
+        Array<D+1>& marginals) const {
+    assert(subproblem >= 0 && subproblem < D);
+    double objective = 0;
+    std::mutex objectiveMutex;
+
+    for (int i = 0; i < D+1; ++i) {
+        assert(unaries.shape()[i] == marginals.shape()[i]);
+        assert(unaries.index_bases()[i] == marginals.index_bases()[i]);
+    }
+
+    assert(unaries.strides()[D] == 1);
+    assert(unaries.strides()[subproblem] == numLabels());
+
+    const int width = unaries.shape()[subproblem]; // Length along this dimension of the grid
+    const int rowStride = width*_numLabels;
+    const int numRows = unaries.num_elements() / rowStride;
+
+    std::vector<double> m_L(_numLabels*width, 0);
+    std::vector<double> m_R(_numLabels*width, 0);
+
+    for (int i = 0; i < numRows; ++i) {
+        const int baseVar = i*width;
+        const int baseIdx = baseVar*_numLabels;
+        const auto* unaries_i = unaries.data() + baseIdx;
+        auto* marginals_i = marginals.data() + baseIdx;
+
+        // Compute log m_L
+        // Base step
+        for (int l = 0; l < _numLabels; ++l) {
+            m_L[l] = unaries_i[l];
+        }
+        // Inductive step
+        for (int j = 1; j < width; ++j) {
+            const int currVar = baseVar + j;
+            for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                double minMessage = std::numeric_limits<double>::max();
+                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                    auto cost = _edgePotential.edgeFn(getLabel(currVar-1, lPrev), getLabel(currVar, lCurr))
+                        + m_L[(j-1)*_numLabels+lPrev];
+                    minMessage = std::min(minMessage, cost);
+                }
+                m_L[j*_numLabels+lCurr] = unaries_i[j*_numLabels+lCurr] + minMessage;
+            }
+        }
+
+        // Compute log m_R
+        for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+            m_R[(width-1)*_numLabels+lCurr] = 0.0;
+        }
+        for (int j = width-2; j >= 0; --j) {
+            const int currVar = baseVar + j;
+            for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+                double minMessage = std::numeric_limits<double>::min();
+                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+                    auto cost = _edgePotential.edgeFn(getLabel(currVar, lCurr), getLabel(currVar+1, lPrev))
+                        + unaries_i[(j+1)*_numLabels + lPrev] + m_R[(j+1)*_numLabels+lPrev];
+                        minMessage = std::min(minMessage, cost);
+                }
+                m_R[j*_numLabels+lCurr] = minMessage;
+            }
+        }
+
+        // Compute marginals
+        for (int j = 0; j < width; ++j) {
+            for (int l = 0; l < _numLabels; ++l) {
+                marginals_i[j*_numLabels+l] = m_L[j*_numLabels+l] + m_R[j*_numLabels+l];
+            }
+        }
+
+        // Objective is min-marginal of any variable (we pick first one)
+        double minMarginal = std::numeric_limits<double>::max();
+        for (int l = 0; l < _numLabels; ++l)
+            minMarginal = std::min(minMarginal, marginals_i[l]);
+
+        {
+            std::unique_lock<std::mutex> l(objectiveMutex);
+            objective += minMarginal;
+        }
+    }
+    return objective;
+}
+
+template <int D, class EP>
 double GridRegularizer<D, EP>::evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const {
     assert(subproblem >= 0 && subproblem < D);
     double objective = 0;

@@ -86,6 +86,9 @@ Array<D> DeconvolveConvexBP(
        for (int i = 0; i < D; ++i)
            plusEquals(modifiedUnaries, lambda[i]);
        
+       for (int i = 0; i < D; ++i) {
+            minusEquals(modifiedUnaries, lambda[i]);
+       }
        // run min-marginals with modifiedUnaries
        // compute lambda as result of min-marginal - modified unary
        // update modifiedUnaries
