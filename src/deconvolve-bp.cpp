@@ -87,12 +87,16 @@ Array<D> DeconvolveConvexBP(
            plusEquals(modifiedUnaries, lambda[i]);
        
        for (int i = 0; i < D; ++i) {
-            minusEquals(modifiedUnaries, lambda[i]);
+           arrayMap([](double& l, double& u) { u -= l; l = u; }, 
+                   lambda[i], modifiedUnaries);
+           R.minMarginal(i, lambda[i], lambda[i]);
+           arrayMap(
+                   [&](double& l, double& u) { 
+                       l = l/numPrimalVars - u;
+                       u += l;
+                   },
+                   lambda[i], modifiedUnaries);
        }
-       // run min-marginals with modifiedUnaries
-       // compute lambda as result of min-marginal - modified unary
-       // update modifiedUnaries
-       //
        // run steps of gradient descent on data-term + soft-min of modified unaries
 
     }
