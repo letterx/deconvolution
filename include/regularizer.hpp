@@ -15,10 +15,8 @@ class Regularizer {
         virtual int numSubproblems() const = 0;
         virtual int numLabels() const = 0;
         virtual double getLabel(int var, int l) const = 0;
-        /*
-         *virtual double getIntervalLB(int var, int l) const = 0;
-         *virtual double getIntervalUB(int var, int l) const = 0;
-         */
+        virtual double getIntervalLB(int var, int l) const = 0;
+        virtual double getIntervalUB(int var, int l) const = 0;
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const = 0;
         virtual double minMarginal(int subproblem, 
                 const Array<D+1>& unaries,
@@ -39,6 +37,8 @@ class DummyRegularizer : public Regularizer<D> {
         virtual int numSubproblems() const override { return 0; }
         virtual int numLabels() const override { return 2; }
         virtual double getLabel(int var, int l) const override { return l == 0 ? 0 : 255; }
+        virtual double getIntervalLB(int var, int l) const { return 0; }
+        virtual double getIntervalUB(int var, int l) const { return 255; }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override 
             { return 0; }
         virtual double minMarginal(int subproblem, 
@@ -173,23 +173,34 @@ class GridRegularizer : public Regularizer<D> {
             : _extents(extents)
             , _numLabels(numLabels)
             , _labelScale(labelScale)
-            , _labels(std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; })*numLabels, 0)
             , _edgePotential(edgePotential)
         { 
             assert(_extents.size() == D);
             int n = std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; });
-            for (int i = 0; i < n; ++i)
-                for (int l = 0; l < _numLabels; ++l)
-                    _labels[i*_numLabels+l] = l*_labelScale;
+            _labels.resize(n);
+            _lowerBounds.resize(n);
+            _upperBounds.resize(n);
+            for (int i = 0; i < n; ++i) {
+                for (int l = 0; l < _numLabels; ++l) {
+                    auto idx = i*_numLabels+l;
+                    _labels[idx] = l*_labelScale;
+                    _lowerBounds[idx] = (l-0.5)*_labelScale;
+                    _upperBounds[idx] = (l+0.5)*_labelScale;
+                }
+            }
         }
     private:
         // Internal non-virtual functions to improve inlining
         double _getLabel(int var, int l) const { return _labels[var*_numLabels+l]; }
+        double _getLB(int var, int l) const { return _lowerBounds[var*_numLabels+l]; }
+        double _getUB(int var, int l) const { return _upperBounds[var*_numLabels+l]; }
 
     public:
         virtual int numSubproblems() const override { return D; }
         virtual int numLabels() const override { return _numLabels; }
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
+        virtual double getIntervalLB(int var, int l) const { return _getLB(var, l); }
+        virtual double getIntervalUB(int var, int l) const { return _getUB(var, l); }
         virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
         virtual double minMarginal(int subproblem, 
                 const Array<D+1>& unaries,
@@ -202,6 +213,8 @@ class GridRegularizer : public Regularizer<D> {
         int _numLabels;
         double _labelScale;
         std::vector<double> _labels;
+        std::vector<double> _lowerBounds;
+        std::vector<double> _upperBounds;
         EdgePotential _edgePotential;
 };
 

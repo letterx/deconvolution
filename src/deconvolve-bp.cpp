@@ -41,7 +41,21 @@ std::vector<Array<D+1>> allocLambda(const Shape& shape) {
 
 template <int D>
 void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
-
+    int var = 0;
+    int label = 0;
+    arrayMap(
+            [&](double& unary) {
+                auto lb = R.getIntervalLB(var, label);
+                auto ub = R.getIntervalUB(var, label);
+                auto nu_i = nu.data()[var];
+                unary = std::min(nu_i*lb, nu_i*ub);
+                label++;
+                if (label == R.numLabels()) {
+                    label = 0;
+                    var++;
+                }
+            },
+            result);
 }
 
 
