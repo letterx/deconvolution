@@ -40,7 +40,9 @@ std::vector<Array<D+1>> allocLambda(const Shape& shape) {
 }
 
 template <int D>
-void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result);
+void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
+
+}
 
 
 template <int D>
@@ -63,18 +65,15 @@ Array<D> DeconvolveConvexBP(
     int numPrimalVars = x.num_elements();
     const auto lambdaShape = arrayExtents(x)[R.numLabels()];
     auto lambda = allocLambda<D>(lambdaShape);
-    int numLambda = numPrimalVars*R.numSubproblems()*R.numLabels();
-    int numDualVars = numLambda + numPrimalVars; // Including all lambda vars + vector nu
-    auto dualVars = std::vector<double>(numDualVars, 0.0);
     auto primalMu_i = std::vector<double>(numPrimalVars*R.numLabels(), 0.0);
 
     auto modifiedUnaries = Array<D+1>{lambdaShape};
     auto nu = Array<D>{shape};
 
     // Initialize x to 0 to find the least norm solution to Qx = b
-    for (size_t i = 0; i < x.num_elements(); ++i) {
+    for (size_t i = 0; i < x.num_elements(); ++i)
         x.data()[i] = 0;
-    }
+
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Q, b, x);
 

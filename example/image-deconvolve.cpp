@@ -180,9 +180,11 @@ int main(int argc, char **argv) {
             deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, Rsmooth, progressCallback, params, s, deblur);
             showImage(deblur);
         }
-    } else if (method == std::string("dual"))
+    } else if (method == std::string("dual")) {
         deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
-    else {
+    } else if (method == std::string("bp")) {
+        deblur = deconvolution::DeconvolveConvexBP<2>(y, H, H, R, progressCallback, params, s);
+    } else {
         std::cout << "Unknown optimization method!\n";
         exit(-1);
     }
