@@ -77,7 +77,7 @@ double dualObjective(const Regularizer<D>& R,
     for (int i = 0; i < D; ++i)
         plusEquals(unaries, lambda[i]);
     arraySubMap<1>(
-            [&] (const typename Array<D+1>::template array_view<1>::type& unary_i) {
+            [&] (const typename Array<D+1>::template subarray<1>::type& unary_i) {
                 unaryObjective += arrayMin(unary_i);
             },
             unaries);
@@ -104,7 +104,7 @@ Array<D> DeconvolveConvexBP(
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { 
         return Ht(H(x)) + params.dataSmoothing*x; 
     };
-    //double constantTerm = dot(y, y);
+    double constantTerm = dot(y, y);
 
     int numPrimalVars = x.num_elements();
     const auto lambdaShape = arrayExtents(x)[R.numLabels()];
@@ -142,6 +142,8 @@ Array<D> DeconvolveConvexBP(
        }
        // run steps of gradient descent on data-term + soft-min of modified unaries
 
+       auto dualObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
+       std::cout << "Dual: " << dualObj << "\n";
     }
 
     return x;
