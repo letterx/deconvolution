@@ -58,6 +58,36 @@ void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result)
             result);
 }
 
+template <int D>
+double dualObjective(const Regularizer<D>& R,
+        const LinearSystem<D>& Q,
+        const Array<D>& b, 
+        const Array<D>& nu,
+        double constantTerm,
+        const std::vector<Array<D+1>>& lambda) {
+    Array<D> bPlusNu = b;
+    plusEquals(bPlusNu, nu);
+    Array<D> x = bPlusNu;
+    double dataObjective = quadraticMinCG<D>(Q, bPlusNu, x) + constantTerm; 
+
+    double unaryObjective = 0;
+    auto lambdaShape = arrayExtents(lambda[0]);
+    Array<D+1> unaries(lambdaShape);
+    addUnaries(R, nu, unaries);
+    for (int i = 0; i < D; ++i)
+        plusEquals(unaries, lambda[i]);
+    arraySubMap<1>(
+            [&] (const typename Array<D+1>::template array_view<1>::type& unary_i) {
+                unaryObjective += arrayMin(unary_i);
+            },
+            unaries);
+
+    double regularizerObjective = 0;
+    for (int i = 0; i < D; ++i)
+        regularizerObjective += R.minMarginal(i, lambda[i], unaries);
+
+    return dataObjective + unaryObjective + regularizerObjective;
+}
 
 template <int D>
 Array<D> DeconvolveConvexBP(

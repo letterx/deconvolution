@@ -84,6 +84,20 @@ arrayMap(Fn f, A1&& a1, A2&& a2) {
         arrayMap(f, *i1, *i2);
 }
 
+template <int I, typename Fn, typename A>
+typename std::enable_if<(ArrayDim<A>::value == I), void>::type
+arraySubMap(Fn&& f, A&& a) {
+    f(a);
+}
+
+template <int I, typename Fn, typename A>
+typename std::enable_if<(ArrayDim<A>::value > I), void>::type
+arraySubMap(Fn&& f, A&& a) {
+    auto iter = a.begin();
+    auto e = a.end();
+    for (; iter != e; ++iter)
+        arraySubMap<I>(f, *iter);
+}
 
 template <typename A1, typename A2>
 void plusEquals(A1& a1, const A2& a2) {
@@ -95,6 +109,12 @@ void minusEquals(A1& a1, const A2& a2) {
     arrayMap([](double& x1, const double& x2) { x1 -= x2; }, a1, a2);
 }
 
+template <typename A>
+typename A::element arrayMin(const A& a) {
+    typename A::element minVal = std::numeric_limits<typename A::element>::max();
+    arrayMap([&](typename A::element val) { minVal = std::min(minVal, val); }, a);
+    return minVal;
+}
 
 
 #endif
