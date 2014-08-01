@@ -90,6 +90,92 @@ double dualObjective(const Regularizer<D>& R,
 }
 
 template <int D>
+struct nuOptimizeLBFGS {
+    public:
+        static void optimize(const LinearSystem<D>& Q,
+                const Array<D>& b,
+                const Regularizer<D>& R,
+                const std::vector<Array<D+1>>& lambda,
+                Array<D>& nu);
+
+        static void evaluate(const real_1d_array& lbfgsX,
+                double& objective,
+                real_1d_array& lbfgsGrad,
+                void* instance) 
+        {
+            static_cast<nuOptimizeLBFGS*>(instance)
+                ->_evaluate(lbfgsX, objective, lbfgsGrad);
+        }
+
+        static void progress(const real_1d_array& lbfgsX,
+                double fx,
+                void *instance)
+        {
+            static_cast<nuOptimizeLBFGS*>(instance)
+                ->_progress(lbfgsX, fx);
+        }
+
+    protected:
+        nuOptimizeLBFGS(const LinearSystem<D>& Q,
+                const Array<D>& b,
+                const Regularizer<D>& R,
+                const std::vector<Array<D+1>>& lambda)
+            : _Q(Q)
+            , _b(b)
+            , _R(R)
+            , _lambda(lambda) 
+        { }
+
+        void _evaluate(const real_1d_array& lbfgsX,
+                double& objective,
+                real_1d_array& lbfgsGrad);
+        void _progress(const real_1d_array& lbfgsX, double fx);
+
+        const LinearSystem<D>& _Q;
+        const Array<D>& _b;
+        const Regularizer<D>& _R;
+        const std::vector<Array<D+1>>& _lambda;
+};
+
+template <int D>
+void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
+        const Array<D>& b,
+        const Regularizer<D>& R,
+        const std::vector<Array<D+1>>& lambda,
+        Array<D>& nu) {
+
+    real_1d_array lbfgsX;
+    lbfgsX.setcontent(nu.num_elements(), nu.data());
+
+    minlbfgsstate lbfgsState;
+    minlbfgsreport lbfgsReport;
+
+    minlbfgscreate(10, lbfgsX, lbfgsState);
+    minlbfgssetxrep(lbfgsState, true);
+
+    auto algData = nuOptimizeLBFGS<D>{Q, b, R, lambda};
+    minlbfgssetcond(lbfgsState, 0.0, 0.0, 0, 10);
+
+    minlbfgsoptimize(lbfgsState, 
+            nuOptimizeLBFGS<D>::evaluate, 
+            nuOptimizeLBFGS<D>::progress, 
+            &algData);
+    minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
+}
+
+template <int D>
+void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
+                double& objective,
+                real_1d_array& lbfgsGrad) {
+
+}
+
+template <int D>
+void nuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
+
+}
+
+template <int D>
 Array<D> DeconvolveConvexBP(
         const Array<D>& y,
         const LinearSystem<D>& H,
@@ -141,6 +227,8 @@ Array<D> DeconvolveConvexBP(
                    lambda[i], modifiedUnaries);
        }
        // run steps of gradient descent on data-term + soft-min of modified unaries
+       
+       nuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, nu);
 
        auto dualObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
        std::cout << "Dual: " << dualObj << "\n";
