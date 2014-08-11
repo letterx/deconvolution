@@ -177,9 +177,10 @@ class GridRegularizer : public Regularizer<D> {
         { 
             assert(_extents.size() == D);
             int n = std::accumulate(extents.begin(), extents.end(), 1, [](int a, int b) { return a*b; });
-            _labels.resize(n);
-            _lowerBounds.resize(n);
-            _upperBounds.resize(n);
+            int nLabels = n*_numLabels;
+            _labels.resize(nLabels);
+            _lowerBounds.resize(nLabels);
+            _upperBounds.resize(nLabels);
             for (int i = 0; i < n; ++i) {
                 for (int l = 0; l < _numLabels; ++l) {
                     auto idx = i*_numLabels+l;

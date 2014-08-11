@@ -4,6 +4,7 @@
 #include <lbfgs.h>
 #include <iostream>
 #include "cg.h"
+#include "array-util.hpp"
 
 namespace deconvolution {
 

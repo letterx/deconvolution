@@ -6,6 +6,7 @@
 
 #include "quadratic-min.hpp"
 #include "util.hpp"
+#include "array-util.hpp"
 #include "regularizer.hpp"
 #include "optimal-grad.hpp"
 #include "project-simplex.hpp"

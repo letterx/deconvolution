@@ -40,6 +40,7 @@ class ConvexFn : public PiecewiseLinearFn {
         { }
 
         double moreauEnvelope(double x, double t) const;
+        double moreauGrad(double x, double t) const;
 
     protected:
         double moreauY(double x, double t) const;
@@ -107,6 +108,11 @@ inline double ConvexFn::moreauEnvelope(double x, double t) const {
     auto y = moreauY(x, t);
     auto dist = y - x;
     return (*this)(y) + 0.5*dist*dist/t;
+}
+
+inline double ConvexFn::moreauGrad(double x, double t) const {
+    auto y = moreauY(x, t);
+    return (x - y)/t;
 }
 
 #endif

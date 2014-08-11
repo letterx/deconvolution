@@ -5,14 +5,6 @@
 #include <array>
 
 namespace deconvolution {
-template <unsigned long D>
-double dot(const Array<D>& a1, const Array<D>& a2) {
-    double sum = 0.0;
-    for (size_t i = 0; i < a1.num_elements(); ++i) {
-        sum += a1.data()[i] * a2.data()[i];
-    }
-    return sum;
-}
 
 template <unsigned long D>
 Array<D> elementMult(const Array<D>& a1, const Array<D>& a2) {
@@ -21,11 +13,6 @@ Array<D> elementMult(const Array<D>& a1, const Array<D>& a2) {
         result.data()[i] *= a2.data()[i];
     }
     return result;
-}
-
-template <unsigned long D>
-double norm(const Array<D>& a) {
-    return dot(a,a);
 }
 
 template <unsigned long D>

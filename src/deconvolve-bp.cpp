@@ -8,6 +8,7 @@
 #include "util.hpp"
 #include "regularizer.hpp"
 #include "array-util.hpp"
+#include "convex-fn.hpp"
 
 
 #pragma clang diagnostic push
@@ -119,11 +120,13 @@ struct nuOptimizeLBFGS {
         nuOptimizeLBFGS(const LinearSystem<D>& Q,
                 const Array<D>& b,
                 const Regularizer<D>& R,
-                const std::vector<Array<D+1>>& lambda)
+                const std::vector<Array<D+1>>& lambda,
+                double t)
             : _Q(Q)
             , _b(b)
             , _R(R)
             , _lambda(lambda) 
+            , _t(t)
         { }
 
         void _evaluate(const real_1d_array& lbfgsX,
@@ -135,6 +138,9 @@ struct nuOptimizeLBFGS {
         const Array<D>& _b;
         const Regularizer<D>& _R;
         const std::vector<Array<D+1>>& _lambda;
+        const double _t;
+
+        std::vector<ConvexFn> _lambdaSum;
 };
 
 template <int D>
@@ -153,7 +159,8 @@ void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
     minlbfgscreate(10, lbfgsX, lbfgsState);
     minlbfgssetxrep(lbfgsState, true);
 
-    auto algData = nuOptimizeLBFGS<D>{Q, b, R, lambda};
+    const double t = 0.001;
+    auto algData = nuOptimizeLBFGS<D>{Q, b, R, lambda, t};
     minlbfgssetcond(lbfgsState, 0.0, 0.0, 0, 10);
 
     minlbfgsoptimize(lbfgsState, 
@@ -161,12 +168,35 @@ void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
             nuOptimizeLBFGS<D>::progress, 
             &algData);
     minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
+
+    auto shape = arrayExtents(b);
+    Array<D> x{shape};
+    for (size_t i = 0; i < x.num_elements(); ++i)
+        x.data()[i] = lbfgsX.getcontent()[i];
+    nu = -2.0 * Q(x) + b;
 }
 
 template <int D>
 void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
                 double& objective,
                 real_1d_array& lbfgsGrad) {
+    auto shape = arrayExtents(_b);
+    auto x = ConstArrayRef<D>{lbfgsX.getcontent(), shape};
+    const int n = x.num_elements();
+    auto Qx = _Q(x);
+    auto xQx = dot(x, Qx);
+    auto bx = dot(_b, x);
+    for (int i = 0; i < n; ++i)
+        lbfgsGrad.getcontent()[i] = 2*Qx.data()[i] - _b.data()[i];
+
+    objective = xQx - bx;
+
+    assert(n == static_cast<int>(_lambdaSum.size()));
+    for (int i = 0; i < n; ++i) {
+        objective += _lambdaSum[i].moreauEnvelope(x.data()[i], _t);
+        lbfgsGrad.getcontent()[i] -= _lambdaSum[i].moreauGrad(x.data()[i], _t);
+    }
+
 
 }
 

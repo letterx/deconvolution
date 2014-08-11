@@ -5,6 +5,7 @@
 
 #include "ceres.hpp"
 #include "util.hpp"
+#include "array-util.hpp"
 #include "regularizer.hpp"
 
 #pragma clang diagnostic push

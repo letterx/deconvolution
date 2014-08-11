@@ -4,6 +4,8 @@
 #include <type_traits>
 #include <boost/multi_array.hpp>
 
+namespace deconvolution {
+
 template <typename A, size_t D>
 typename std::enable_if<D == 0, boost::multi_array_types::extent_gen>::type
 arrayExtentsHelper(const A& array) {
@@ -116,5 +118,19 @@ typename A::element arrayMin(const A& a) {
     return minVal;
 }
 
+template <typename A1, typename A2>
+typename A1::element dot(const A1& a1, const A2& a2) {
+    typename A1::element sum = 0;
+    arrayMap([&](typename A1::element v1,
+                typename A2::element v2) { sum += v1*v2; }, a1, a2);
+    return sum;
+}
 
+template <typename A>
+typename A::element norm(const A& a) {
+    return dot(a,a);
+}
+
+
+}
 #endif
