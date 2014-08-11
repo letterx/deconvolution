@@ -25,10 +25,10 @@ boost::general_storage_order<D+1> lambdaOrder(int majorDim) {
     std::array<size_t, D+1> order;
     std::array<bool, D+1> ascending;
     for (int i = 0; i < D+1; ++i) {
-        order[i] = i;
+        order[i] = D - i;
         ascending[i] = true;
     }
-    std::swap(order[majorDim], order[D-1]);
+    std::swap(order[1], order[D-majorDim]);
     return boost::general_storage_order<D+1>(order.begin(), ascending.begin());
 }
 
