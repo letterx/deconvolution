@@ -1,3 +1,5 @@
+#include "deconvolve-bp.hpp"
+
 #include "deconvolve.hpp"
 #include <limits>
 #include <iostream>
@@ -89,62 +91,6 @@ double dualObjective(const Regularizer<D>& R,
 
     return dataObjective + unaryObjective + regularizerObjective;
 }
-
-template <int D>
-struct nuOptimizeLBFGS {
-    public:
-        static void optimize(const LinearSystem<D>& Q,
-                const Array<D>& b,
-                const Regularizer<D>& R,
-                const std::vector<Array<D+1>>& lambda,
-                Array<D>& nu);
-
-        static void evaluate(const real_1d_array& lbfgsX,
-                double& objective,
-                real_1d_array& lbfgsGrad,
-                void* instance) 
-        {
-            static_cast<nuOptimizeLBFGS*>(instance)
-                ->_evaluate(lbfgsX, objective, lbfgsGrad);
-        }
-
-        static void progress(const real_1d_array& lbfgsX,
-                double fx,
-                void *instance)
-        {
-            static_cast<nuOptimizeLBFGS*>(instance)
-                ->_progress(lbfgsX, fx);
-        }
-
-    protected:
-        nuOptimizeLBFGS(const LinearSystem<D>& Q,
-                const Array<D>& b,
-                const Regularizer<D>& R,
-                const std::vector<Array<D+1>>& lambda,
-                double t)
-            : _Q(Q)
-            , _b(b)
-            , _R(R)
-            , _lambda(lambda) 
-            , _lambdaSum(sumLambda(lambda, R))
-            , _t(t)
-        { }
-
-        void _evaluate(const real_1d_array& lbfgsX,
-                double& objective,
-                real_1d_array& lbfgsGrad);
-        void _progress(const real_1d_array& lbfgsX, double fx);
-        std::vector<ConvexFn> sumLambda(const std::vector<Array<D+1>>& lambda,
-                const Regularizer<D>& R) const;
-
-        const LinearSystem<D>& _Q;
-        const Array<D>& _b;
-        const Regularizer<D>& _R;
-        const std::vector<Array<D+1>>& _lambda;
-        std::vector<ConvexFn> _lambdaSum;
-        const double _t;
-
-};
 
 template <int D>
 void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
@@ -275,9 +221,12 @@ Array<D> DeconvolveConvexBP(
 
     std::cout << "Finding least-squares fit\n";
     quadraticMinCG<D>(Q, b, x);
+    auto dualObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
 
     bool converged = false;
+    int iter = 0;
     while (!converged) {
+        std::cout << "Iter: " << iter << "\n";
 
        // Compute modifiedUnaries = unaries + sum of lambda - lambda_alpha
        addUnaries(R, nu, modifiedUnaries);
@@ -294,13 +243,23 @@ Array<D> DeconvolveConvexBP(
                        u += l;
                    },
                    lambda[i], modifiedUnaries);
+           auto newObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
+           assert(newObj >= dualObj);
+           dualObj = newObj;
+           std::cout << "Dual: " << dualObj << "\n";
        }
        // run steps of gradient descent on data-term + soft-min of modified unaries
        
        nuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, nu);
 
-       auto dualObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
+       auto newObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
+       assert(newObj >= dualObj);
+       dualObj = newObj;
+
        std::cout << "Dual: " << dualObj << "\n";
+
+       iter++;
+
     }
 
     return x;

@@ -68,8 +68,8 @@ set(alglib-sources
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR 
         ${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
 	#
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -DNDEBUG  -ffast-math -g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3  -ffast-math -g")
     set(CMAKE_CXX_FLAGS_DEBUG "-g")
     set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
 	#
