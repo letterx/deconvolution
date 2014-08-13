@@ -126,6 +126,7 @@ struct nuOptimizeLBFGS {
             , _b(b)
             , _R(R)
             , _lambda(lambda) 
+            , _lambdaSum(sumLambda(lambda, R))
             , _t(t)
         { }
 
@@ -133,14 +134,16 @@ struct nuOptimizeLBFGS {
                 double& objective,
                 real_1d_array& lbfgsGrad);
         void _progress(const real_1d_array& lbfgsX, double fx);
+        std::vector<ConvexFn> sumLambda(const std::vector<Array<D+1>>& lambda,
+                const Regularizer<D>& R) const;
 
         const LinearSystem<D>& _Q;
         const Array<D>& _b;
         const Regularizer<D>& _R;
         const std::vector<Array<D+1>>& _lambda;
+        std::vector<ConvexFn> _lambdaSum;
         const double _t;
 
-        std::vector<ConvexFn> _lambdaSum;
 };
 
 template <int D>
@@ -203,6 +206,42 @@ void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
 template <int D>
 void nuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
 
+}
+
+template <int D>
+std::vector<ConvexFn> nuOptimizeLBFGS<D>::sumLambda(
+        const std::vector<Array<D+1>>& lambda,
+        const Regularizer<D>& R) const {
+    // typedef for array of lambda for a single variable
+    typedef typename Array<D+1>::template subarray<1>::type Lambda_i;
+
+    Array<D+1> lambdaSum{arrayExtents(lambda[0])};
+    for (const auto& l : lambda)
+        plusEquals(lambdaSum, l);
+
+    std::vector<ConvexFn> convexLambda;
+    int i = 0;
+    arraySubMap<1>(
+            [&] (const Lambda_i& lambda_i) {
+                const int numL = R.numLabels();
+                std::vector<double> xVals;
+                std::vector<double> fVals;
+                xVals.push_back(R.getIntervalLB(i, 0));
+                fVals.push_back(lambda_i[0]);
+                for (int l = 0; l < numL-1; ++l) {
+                    xVals.push_back(R.getIntervalUB(i, l));
+                    fVals.push_back(std::min(lambda_i[l], lambda_i[l+1]));
+                }
+                xVals.push_back(R.getIntervalUB(i, numL-1));
+                fVals.push_back(lambda_i[numL-1]);
+                assert(static_cast<int>(xVals.size()) == numL+1 && 
+                    static_cast<int>(fVals.size()) == numL+1);
+                auto fn = PiecewiseLinearFn{xVals.begin(), xVals.end(), fVals.begin()};
+                convexLambda.emplace_back(fn.convexify());
+                i++;
+            },
+            lambdaSum);
+    return convexLambda;
 }
 
 template <int D>
