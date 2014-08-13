@@ -16,10 +16,13 @@ using namespace alglib;
 
 template <int D>
 boost::general_storage_order<D+1> lambdaOrder(int majorDim);
+
 template <int D, typename Shape>
 std::vector<Array<D+1>> allocLambda(const Shape& shape);
+
 template <int D>
 void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result);
+
 template <int D>
 double dualObjective(const Regularizer<D>& R,
         const LinearSystem<D>& Q,

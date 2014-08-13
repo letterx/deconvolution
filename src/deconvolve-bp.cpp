@@ -1,10 +1,8 @@
 #include "deconvolve-bp.hpp"
 
-#include "deconvolve.hpp"
 #include <limits>
 #include <iostream>
 #include <chrono>
-#include <random>
 
 #include "quadratic-min.hpp"
 #include "util.hpp"
@@ -272,7 +270,8 @@ Array<D> DeconvolveConvexBP(
 		Regularizer<d>& R,                                                     \
 		ProgressCallback<d>& pc,                                               \
 		DeconvolveParams& params,                                              \
-		DeconvolveStats& s);
+		DeconvolveStats& s);                                                   \
+    template boost::general_storage_order<d+1> lambdaOrder<d>(int majorDim);
 
 INSTANTIATE_DECONVOLVE(1)
 INSTANTIATE_DECONVOLVE(2)

@@ -1,4 +1,5 @@
 set(test-sources
+    test-deconvolve-bp.cpp
     test-project-simplex.cpp
     test-regularizer.cpp
     test-transport.cpp
