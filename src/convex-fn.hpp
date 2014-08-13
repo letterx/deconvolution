@@ -72,13 +72,13 @@ inline ConvexFn PiecewiseLinearFn::convexify() const {
     auto slopes = std::vector<double>{std::numeric_limits<double>::lowest()};
 
     for (int i = 1; i < n; ++i) {
-        double lastSlope = slopes.back();
         double nextX = _x[i];
         double nextF = _fx[i];
         while (true) {
             double rise = nextF - fx.back();
             double run = nextX - xs.back();
             double s = rise/run;
+            double lastSlope = slopes.back();
             if (s <= lastSlope) {
                 xs.pop_back();
                 fx.pop_back();
