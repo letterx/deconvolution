@@ -30,8 +30,57 @@ BOOST_AUTO_TEST_SUITE(RegularizerHPP)
             auto ep = TruncatedL1{10.0, 7.0};
 
             double g1, g2;
-            BOOST_CHECK_THROW(ep.edgeGrad(0.0, 0.0, g1, g2), 
+            BOOST_CHECK_THROW(
+                    ep.edgeGrad(0.0, 0.0, g1, g2), 
                     DeconvolutionAssertion);
+        }
+
+    BOOST_AUTO_TEST_SUITE_END()
+
+    BOOST_AUTO_TEST_SUITE(ClassSmoothEdge)
+
+        BOOST_AUTO_TEST_CASE(EdgeFn) {
+            auto ep = SmoothEdge{7.0, 10.0};
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(0.0, 0.0), 0.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 1.0), 0.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-210.0, -210.0), 0.0, epsilon);
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 2.0), 7.0/11.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(2.0, 1.0), 7.0/11.0, epsilon);
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 7.0), 7.0*36.0/46.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-5.0, 5.0), 7.0*100.0/110.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-5.0, 6.0), 7.0*121.0/131.0, epsilon);
+        }
+
+        BOOST_AUTO_TEST_CASE(EdgeGrad) {
+            auto ep = SmoothEdge{7.0, 10.0};
+
+            {
+                double g1 = 0;
+                double g2 = 0;
+                ep.edgeGrad(0.0, 0.0, g1, g2);
+                BOOST_CHECK_SMALL(g1, epsilon);
+                BOOST_CHECK_SMALL(g2, epsilon);
+            }
+
+            {
+                double g1 = 0;
+                double g2 = 0;
+                ep.edgeGrad(3.0, 4.0, g1, g2);
+                BOOST_CHECK_CLOSE(g1,-2.0*7.0*10.0/121.0, epsilon);
+                BOOST_CHECK_CLOSE(g2, 2.0*7.0*10.0/121.0, epsilon);
+            }
+
+            {
+                double g1 = 0;
+                double g2 = 0;
+                ep.edgeGrad(5.0, 4.0, g1, g2);
+                BOOST_CHECK_CLOSE(g1, 2.0*7.0*10.0/121.0, epsilon);
+                BOOST_CHECK_CLOSE(g2,-2.0*7.0*10.0/121.0, epsilon);
+            }
+
         }
 
     BOOST_AUTO_TEST_SUITE_END()
