@@ -36,7 +36,7 @@ double GridRegularizer<D, EP>::minMarginal(int subproblem,
     }
 
     assert(unaries.strides()[D] == 1);
-    assert(unaries.strides()[subproblem] == numLabels());
+    assert(unaries.strides()[subproblem] == maxLabels());
 
     const int width = unaries.shape()[subproblem]; // Length along this dimension of the grid
     const int rowStride = width*_numLabels;

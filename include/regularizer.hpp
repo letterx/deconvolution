@@ -13,7 +13,8 @@ class Regularizer {
         Regularizer() { };
 
         virtual int numSubproblems() const = 0;
-        virtual int numLabels() const = 0;
+        virtual int maxLabels() const = 0;
+        virtual int numLabels(int var) const = 0;
         virtual double getLabel(int var, int l) const = 0;
         virtual double getIntervalLB(int var, int l) const = 0;
         virtual double getIntervalUB(int var, int l) const = 0;
@@ -34,7 +35,8 @@ class DummyRegularizer : public Regularizer<D> {
     public:
         DummyRegularizer() { };
         virtual int numSubproblems() const override { return 0; }
-        virtual int numLabels() const override { return 2; }
+        virtual int maxLabels() const override { return 2; }
+        virtual int numLabels(int var) const override { return 2; }
         virtual double getLabel(int var, int l) const override { return l == 0 ? 0 : 255; }
         virtual double getIntervalLB(int var, int l) const { return 0; }
         virtual double getIntervalUB(int var, int l) const { return 255; }
@@ -182,7 +184,8 @@ class GridRegularizer : public Regularizer<D> {
 
     public:
         virtual int numSubproblems() const override { return D; }
-        virtual int numLabels() const override { return _numLabels; }
+        virtual int maxLabels() const override { return _numLabels; }
+        virtual int numLabels(int var) const override { return _numLabels; }
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double getIntervalLB(int var, int l) const { return _getLB(var, l); }
         virtual double getIntervalUB(int var, int l) const { return _getUB(var, l); }

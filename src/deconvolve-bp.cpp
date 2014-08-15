@@ -31,7 +31,7 @@ void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result)
                 auto nu_i = nu.data()[var];
                 unary = std::min(nu_i*lb, nu_i*ub);
                 label++;
-                if (label == R.numLabels()) {
+                if (label == R.maxLabels()) {
                     label = 0;
                     var++;
                 }
@@ -147,7 +147,8 @@ std::vector<ConvexFn> nuOptimizeLBFGS<D>::sumLambda(
     int i = 0;
     arraySubMap<1>(
             [&] (const Lambda_i& lambda_i) {
-                const int numL = R.numLabels();
+                const int numL = R.numLabels(i);
+                DECONV_ASSERT(numL <= static_cast<int>(lambda_i.size()));
                 std::vector<double> xVals;
                 std::vector<double> fVals;
                 xVals.push_back(R.getIntervalLB(i, 0));
@@ -186,9 +187,9 @@ Array<D> DeconvolveConvexBP(
     double constantTerm = dot(y, y);
 
     int numPrimalVars = x.num_elements();
-    const auto lambdaShape = arrayExtents(x)[R.numLabels()];
+    const auto lambdaShape = arrayExtents(x)[R.maxLabels()];
     auto lambda = allocLambda<D>(lambdaShape);
-    auto primalMu_i = std::vector<double>(numPrimalVars*R.numLabels(), 0.0);
+    auto primalMu_i = std::vector<double>(numPrimalVars*R.maxLabels(), 0.0);
 
     auto modifiedUnaries = Array<D+1>{lambdaShape};
     auto nu = Array<D>{shape};
