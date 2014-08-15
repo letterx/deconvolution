@@ -1,6 +1,7 @@
 #ifndef _DECONVOLVE_BP_HPP_
 #define _DECONVOLVE_BP_HPP_
 
+#include <array>
 #include "deconvolve.hpp"
 #include "regularizer.hpp"
 #include "convex-fn.hpp"
@@ -86,6 +87,26 @@ struct nuOptimizeLBFGS {
         const double _t;
 
 };
+
+template <int D>
+boost::general_storage_order<D+1> lambdaOrder(int majorDim) {
+    std::array<size_t, D+1> order;
+    std::array<bool, D+1> ascending;
+    for (int i = 0; i < D+1; ++i) {
+        order[i] = D - i;
+        ascending[i] = true;
+    }
+    std::swap(order[1], order[D-majorDim]);
+    return boost::general_storage_order<D+1>(order.begin(), ascending.begin());
+}
+
+template <int D, typename Shape>
+std::vector<Array<D+1>> allocLambda(const Shape& shape) {
+    std::vector<Array<D+1>> lambda;
+    for (int i = 0; i < D; ++i)
+        lambda.emplace_back(shape, lambdaOrder<D>(i));
+    return lambda;
+}
 
 
 }
