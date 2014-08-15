@@ -138,6 +138,33 @@ BOOST_AUTO_TEST_SUITE(RegularizerHPP)
             BOOST_CHECK_CLOSE(marg[1][1], -2.0, epsilon);
         }
 
+        BOOST_AUTO_TEST_CASE(MinMarginal2) {
+            auto ep = TruncatedL1{1.0, 1.0};
+            auto R = GridRegularizer<1, TruncatedL1>{
+                std::vector<int>{3}, 3, 1, ep
+            };
+
+            auto margVec = std::vector<double>{ 
+                 0.0, 10.0,  1.0,
+                -1.5, 10.0, -2.0,
+                 3.0,  0.0,  2.0
+            };
+            auto marg = Array<2>{boost::extents[3][3]};
+            marg.assign(margVec.begin(), margVec.end());
+
+            auto obj = R.minMarginal(0, marg, marg);
+            BOOST_CHECK_CLOSE(obj, -1.5, epsilon);
+            BOOST_CHECK_CLOSE(marg[0][0], -1.5, epsilon);
+            BOOST_CHECK_CLOSE(marg[0][1],  8.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[0][2], -1.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[1][0], -1.5, epsilon);
+            BOOST_CHECK_CLOSE(marg[1][1], 10.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[1][2], -1.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[2][0],  1.5, epsilon);
+            BOOST_CHECK_CLOSE(marg[2][1], -1.5, epsilon);
+            BOOST_CHECK_CLOSE(marg[2][2],  1.0, epsilon);
+        }
+
     /*
      *    BOOST_AUTO_TEST_CASE(SingleVariable) {
      *        auto ep = TruncatedL1{0, 0};
