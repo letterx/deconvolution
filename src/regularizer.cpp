@@ -23,6 +23,34 @@ void incrementBase(const std::vector<int>& extents, int subproblem, std::vector<
 }
 
 template <int D, class EP>
+double GridRegularizer<D, EP>::minEdgeCost(int v1, int l1, int v2, int l2) const {
+    double lb1 = getIntervalLB(v1, l1);
+    double ub1 = getIntervalUB(v1, l1);
+    double lb2 = getIntervalLB(v2, l2);
+    double ub2 = getIntervalUB(v2, l2);
+    if (ub1 < lb2) {
+        return _edgePotential.edgeFn(ub1, lb2);
+    } else if (ub2 < lb1) {
+        return _edgePotential.edgeFn(lb1, ub2);
+    } else {
+        return 0;
+    }
+}
+
+template <int D, class EP>
+void GridRegularizer<D, EP>::minConvolve(int v1, int v2, const double* fVals, double* result) const {
+    for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
+        double minMessage = std::numeric_limits<double>::max();
+        for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
+            auto cost = minEdgeCost(v1, lPrev, v2, lCurr)
+                + fVals[lPrev];
+            minMessage = std::min(minMessage, cost);
+        }
+        result[lCurr] = minMessage;
+    }
+}
+
+template <int D, class EP>
 double GridRegularizer<D, EP>::minMarginal(int subproblem, 
         const Array<D+1>& unaries,
         Array<D+1>& marginals) const {
@@ -51,7 +79,7 @@ double GridRegularizer<D, EP>::minMarginal(int subproblem,
         const auto* unaries_i = unaries.data() + baseIdx;
         auto* marginals_i = marginals.data() + baseIdx;
 
-        // Compute log m_L
+        // Compute m_L
         // Base step
         for (int l = 0; l < _numLabels; ++l) {
             m_L[l] = unaries_i[l];
@@ -59,38 +87,32 @@ double GridRegularizer<D, EP>::minMarginal(int subproblem,
         // Inductive step
         for (int j = 1; j < width; ++j) {
             const int currVar = baseVar + j;
-            for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-                double minMessage = std::numeric_limits<double>::max();
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    auto cost = _edgePotential.edgeFn(getLabel(currVar-1, lPrev), getLabel(currVar, lCurr))
-                        + m_L[(j-1)*_numLabels+lPrev];
-                    minMessage = std::min(minMessage, cost);
-                }
-                m_L[j*_numLabels+lCurr] = unaries_i[j*_numLabels+lCurr] + minMessage;
-            }
+            minConvolve(currVar-1, currVar, 
+                    m_L.data()+(j-1)*_numLabels, 
+                    m_L.data()+j*_numLabels);
+            for (int l = 0; l < _numLabels; ++l)
+                m_L[j*_numLabels+l] += unaries_i[j*_numLabels+l];
         }
 
-        // Compute log m_R
+        // Compute m_R
         for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-            m_R[(width-1)*_numLabels+lCurr] = 0.0;
+            m_R[(width-1)*_numLabels+lCurr] = unaries_i[(width-1)*_numLabels+lCurr];
         }
         for (int j = width-2; j >= 0; --j) {
             const int currVar = baseVar + j;
-            for (int lCurr = 0; lCurr < _numLabels; ++lCurr) {
-                double minMessage = std::numeric_limits<double>::min();
-                for (int lPrev = 0; lPrev < _numLabels; ++lPrev) {
-                    auto cost = _edgePotential.edgeFn(getLabel(currVar, lCurr), getLabel(currVar+1, lPrev))
-                        + unaries_i[(j+1)*_numLabels + lPrev] + m_R[(j+1)*_numLabels+lPrev];
-                        minMessage = std::min(minMessage, cost);
-                }
-                m_R[j*_numLabels+lCurr] = minMessage;
-            }
+            minConvolve(currVar+1, currVar,
+                    m_R.data()+(j+1)*_numLabels,
+                    m_R.data()+j*_numLabels);
+            for (int l = 0; l < _numLabels; ++l)
+                m_R[j*_numLabels+l] += unaries_i[j*_numLabels+l];
         }
 
         // Compute marginals
         for (int j = 0; j < width; ++j) {
             for (int l = 0; l < _numLabels; ++l) {
-                marginals_i[j*_numLabels+l] = m_L[j*_numLabels+l] + m_R[j*_numLabels+l];
+                marginals_i[j*_numLabels+l] = m_L[j*_numLabels+l] 
+                    + m_R[j*_numLabels+l]
+                    - unaries_i[j*_numLabels+l];
             }
         }
 

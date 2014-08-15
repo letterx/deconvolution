@@ -86,85 +86,112 @@ BOOST_AUTO_TEST_SUITE(RegularizerHPP)
     BOOST_AUTO_TEST_SUITE_END()
 
 
-    BOOST_AUTO_TEST_CASE(BasicInterface) {
-        auto ep = TruncatedL1{0, 0};
-        auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{10}, 2, 1, ep};
+    BOOST_AUTO_TEST_SUITE(ClassGridRegularizer)
 
-        BOOST_CHECK_EQUAL(R.numSubproblems(), 1);
-        BOOST_CHECK_EQUAL(R.maxLabels(), 2);
-        for (int i = 0; i < 10; ++i) {
-            BOOST_CHECK_EQUAL(R.getLabel(i, 0), 0);
-            BOOST_CHECK_EQUAL(R.getLabel(i, 1), 1);
+        BOOST_AUTO_TEST_CASE(BasicInterface) {
+            auto ep = TruncatedL1{0, 0};
+            auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{10}, 2, 1, ep};
+
+            BOOST_CHECK_EQUAL(R.numSubproblems(), 1);
+            BOOST_CHECK_EQUAL(R.maxLabels(), 2);
+            for (int i = 0; i < 10; ++i) {
+                BOOST_CHECK_EQUAL(R.numLabels(i), 2);
+                BOOST_CHECK_EQUAL(R.getLabel(i, 0), 0.5);
+                BOOST_CHECK_EQUAL(R.getIntervalLB(i, 0), 0.0);
+                BOOST_CHECK_EQUAL(R.getIntervalUB(i, 0), 1.0);
+
+                BOOST_CHECK_EQUAL(R.getLabel(i, 1), 1.5);
+                BOOST_CHECK_EQUAL(R.getIntervalLB(i, 1), 1.0);
+                BOOST_CHECK_EQUAL(R.getIntervalUB(i, 1), 2.0);
+            }
         }
-    }
 
-/*
- *    BOOST_AUTO_TEST_CASE(SingleVariable) {
- *        auto ep = TruncatedL1{0, 0};
- *        auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{1}, 2, 1, ep};
- *
- *        std::vector<double> lambda = { 1.0, 1.0 };
- *        std::vector<double> gradient = {0.0, 0.0};
- *
- *        for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
- *            gradient[0] = 0.0;
- *            gradient[1] = 0.0;
- *            auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
- *
- *            BOOST_CHECK_CLOSE(result, -1.0-t*log(2), epsilon);
- *            BOOST_CHECK_CLOSE(gradient[0], -0.5, epsilon);
- *            BOOST_CHECK_CLOSE(gradient[1], -0.5, epsilon);
- *        }
- *
- *        lambda[1] = 0.0;
- *        
- *        for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
- *            gradient[0] = 0.0;
- *            gradient[1] = 0.0;
- *            auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
- *
- *            BOOST_CHECK_CLOSE(result, -1.0-t*log(1+exp(-1.0/t)), epsilon);
- *            BOOST_CHECK_GE(result, -1.0-t*log(2));
- *            BOOST_CHECK_CLOSE(gradient[0], -1.0/(1+exp(-1.0/t)), epsilon);
- *            BOOST_CHECK_CLOSE(gradient[1], -exp(-1.0/t)/(1+exp(-1.0/t)), epsilon);
- *        }
- *
- *    }
- *
- *    BOOST_AUTO_TEST_CASE(MultipleVars) {
- *        for (int n : {10, 100, 1000}) {
- *            auto ep = TruncatedL1{0, 0};
- *            auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{n}, 2, 1, ep};
- *            std::vector<double> lambda(n*2, 1.0);
- *            std::vector<double> gradient(n*2, 0);
- *
- *            //for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
- *            double t = 1.0;
- *            {
- *                auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
- *
- *                BOOST_CHECK_CLOSE(result, -n - t*n*log(2), epsilon);
- *                BOOST_CHECK_GE(result, -n - t*n*log(2)-epsilon);
- *                for (int i = 0; i < 2*n; ++i)
- *                    BOOST_CHECK_CLOSE(gradient[i], -0.5, epsilon);
- *            }
- *        }
- *    }
- */
+        BOOST_AUTO_TEST_CASE(Primal) {
+            auto ep = TruncatedL1{3.0, 1.0};
+            auto R = GridRegularizer<2, TruncatedL1>{std::vector<int>{3, 4}, 2, 1, ep};
 
-    BOOST_AUTO_TEST_CASE(Primal) {
-        auto ep = TruncatedL1{3.0, 1.0};
-        auto R = GridRegularizer<2, TruncatedL1>{std::vector<int>{3, 4}, 2, 1, ep};
+            double x[] = {
+                4.0, 1.0, 1.0, 7.0,
+                3.0, 7.0, 7.0, 5.0,
+                0.0,-2.0, 2.0, 4.0
+            };
 
-        double x[] = {
-            4.0, 1.0, 1.0, 7.0,
-            3.0, 7.0, 7.0, 5.0,
-            0.0,-2.0, 2.0, 4.0
-        };
+            auto primal = R.primal(x, nullptr);
+            BOOST_CHECK_CLOSE(primal, 18 + 19, epsilon);
+        }
 
-        auto primal = R.primal(x, nullptr);
-        BOOST_CHECK_CLOSE(primal, 18 + 19, epsilon);
-    }
+        BOOST_AUTO_TEST_CASE(MinMarginal1) {
+            auto ep = TruncatedL1{1.0, 1.0};
+            auto R = GridRegularizer<1, TruncatedL1>{
+                std::vector<int>{2}, 2, 1, ep
+            };
 
+            auto margVec = std::vector<double>{ 0.0, 1.0,   -2.0, -2.0 };
+            auto marg = Array<2>{boost::extents[2][2]};
+            marg.assign(margVec.begin(), margVec.end());
+
+            auto obj = R.minMarginal(0, marg, marg);
+            BOOST_CHECK_CLOSE(obj, -2.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[0][0], -2.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[0][1], -1.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[1][0], -2.0, epsilon);
+            BOOST_CHECK_CLOSE(marg[1][1], -2.0, epsilon);
+        }
+
+    /*
+     *    BOOST_AUTO_TEST_CASE(SingleVariable) {
+     *        auto ep = TruncatedL1{0, 0};
+     *        auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{1}, 2, 1, ep};
+     *
+     *        std::vector<double> lambda = { 1.0, 1.0 };
+     *        std::vector<double> gradient = {0.0, 0.0};
+     *
+     *        for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+     *            gradient[0] = 0.0;
+     *            gradient[1] = 0.0;
+     *            auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
+     *
+     *            BOOST_CHECK_CLOSE(result, -1.0-t*log(2), epsilon);
+     *            BOOST_CHECK_CLOSE(gradient[0], -0.5, epsilon);
+     *            BOOST_CHECK_CLOSE(gradient[1], -0.5, epsilon);
+     *        }
+     *
+     *        lambda[1] = 0.0;
+     *        
+     *        for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+     *            gradient[0] = 0.0;
+     *            gradient[1] = 0.0;
+     *            auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
+     *
+     *            BOOST_CHECK_CLOSE(result, -1.0-t*log(1+exp(-1.0/t)), epsilon);
+     *            BOOST_CHECK_GE(result, -1.0-t*log(2));
+     *            BOOST_CHECK_CLOSE(gradient[0], -1.0/(1+exp(-1.0/t)), epsilon);
+     *            BOOST_CHECK_CLOSE(gradient[1], -exp(-1.0/t)/(1+exp(-1.0/t)), epsilon);
+     *        }
+     *
+     *    }
+     *
+     *    BOOST_AUTO_TEST_CASE(MultipleVars) {
+     *        for (int n : {10, 100, 1000}) {
+     *            auto ep = TruncatedL1{0, 0};
+     *            auto R = GridRegularizer<1, TruncatedL1>{std::vector<int>{n}, 2, 1, ep};
+     *            std::vector<double> lambda(n*2, 1.0);
+     *            std::vector<double> gradient(n*2, 0);
+     *
+     *            //for (double t = 1024.0; t >= 1.0/1024.0; t /= 2) {
+     *            double t = 1.0;
+     *            {
+     *                auto result = R.evaluate(0, lambda.data(), t, gradient.data(), nullptr);
+     *
+     *                BOOST_CHECK_CLOSE(result, -n - t*n*log(2), epsilon);
+     *                BOOST_CHECK_GE(result, -n - t*n*log(2)-epsilon);
+     *                for (int i = 0; i < 2*n; ++i)
+     *                    BOOST_CHECK_CLOSE(gradient[i], -0.5, epsilon);
+     *            }
+     *        }
+     *    }
+     */
+
+    BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -170,9 +170,9 @@ class GridRegularizer : public Regularizer<D> {
             for (int i = 0; i < n; ++i) {
                 for (int l = 0; l < _numLabels; ++l) {
                     auto idx = i*_numLabels+l;
-                    _labels[idx] = l*_labelScale;
-                    _lowerBounds[idx] = (l-0.5)*_labelScale;
-                    _upperBounds[idx] = (l+0.5)*_labelScale;
+                    _lowerBounds[idx]   = l*_labelScale;
+                    _labels[idx]        = (l+0.5)*_labelScale;
+                    _upperBounds[idx]   = (l+1.0)*_labelScale;
                 }
             }
         }
@@ -195,6 +195,12 @@ class GridRegularizer : public Regularizer<D> {
         virtual double primal(const double* x, double* gradient) const override;
         virtual double fractionalPrimal(const std::vector<double>& primalMu_i) const override;
         virtual void convexCombination(const std::vector<double>& primalMu_i, Array<D>& x) const override;
+
+
+        double minEdgeCost(int v1, int l1, int v2, int l2) const;
+        void minConvolve(int v1, int v2, 
+                const double* fVals, double* result) const;
+
     protected:
         std::vector<int> _extents;
         int _numLabels;
