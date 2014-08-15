@@ -22,7 +22,7 @@ template <int D, typename Shape>
 std::vector<Array<D+1>> allocLambda(const Shape& shape);
 
 template <int D>
-void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result);
+void nuUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result);
 
 template <int D>
 double dualObjective(const Regularizer<D>& R,
@@ -116,7 +116,7 @@ std::vector<Array<D+1>> allocLambda(const Shape& shape) {
 }
 
 template <int D>
-void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
+void nuUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
     int var = 0;
     int label = 0;
     arrayMap(
@@ -138,7 +138,7 @@ template <int D>
 Array<D+1> sumUnaries(const Regularizer<D>& R, const Array<D>& nu, const std::vector<Array<D+1>>& lambda) {
     auto lambdaShape = arrayExtents(lambda[0]);
     Array<D+1> unaries(lambdaShape);
-    addUnaries(R, nu, unaries);
+    nuUnaries(R, nu, unaries);
     for (int i = 0; i < D; ++i)
         plusEquals(unaries, lambda[i]);
     return unaries;

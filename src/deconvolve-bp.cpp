@@ -185,7 +185,7 @@ Array<D> DeconvolveConvexBP(
         std::cout << "Iter: " << iter << "\n";
 
        // Compute modifiedUnaries = unaries + sum of lambda - lambda_alpha
-       addUnaries(R, nu, modifiedUnaries);
+       nuUnaries(R, nu, modifiedUnaries);
        for (int i = 0; i < D; ++i)
            plusEquals(modifiedUnaries, lambda[i]);
        

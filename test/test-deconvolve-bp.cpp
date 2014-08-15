@@ -95,6 +95,36 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
     };
 
 
+    BOOST_FIXTURE_TEST_CASE(AddUnaries1, DualObjectiveFixture) {
+        auto unaries = sumUnaries(R, nu, lambda);
+        std::vector<double> expected = {
+            0.0, 2.0,   4.0, 2.0, 
+            2.0, 2.0,  -14.0, 0.0
+        };
+        for (int i = 0; i < 8; ++i) {
+            if (unaries.data()[i] != expected[i])
+                std::cout << "Bad: " << i << "\n";
+            BOOST_CHECK_EQUAL(unaries.data()[i], expected[i]);
+        }
+    }
+
+    BOOST_FIXTURE_TEST_CASE(AddUnaries2, DualObjectiveFixture) {
+        std::vector<double> nuVec = {
+            -1.0, 0.0,
+             1.0,-2.0 };
+        nu.assign(nuVec.begin(), nuVec.end());
+
+        auto unaries = sumUnaries(R, nu, lambda);
+        std::vector<double> expected = {
+            -1.0, 0.0,   4.0, 2.0, 
+             2.0, 3.0,  -16.0,-4.0
+        };
+        for (int i = 0; i < 8; ++i) {
+            if (unaries.data()[i] != expected[i])
+                std::cout << "Bad: " << i << "\n";
+            BOOST_CHECK_EQUAL(unaries.data()[i], expected[i]);
+        }
+    }
 
     BOOST_FIXTURE_TEST_CASE(DualObjective1, DualObjectiveFixture) {
         double obj = dualObjective(R, Q, b, nu, 0.0, lambda);
@@ -110,7 +140,7 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
 
         double obj = dualObjective(R, Q, b, nu, 0.0, lambda);
 
-        BOOST_CHECK_CLOSE(obj, -10.5, epsilon);
+        BOOST_CHECK_CLOSE(obj, 0 + -13.0 + -4.0 + -4.0, epsilon);
     }
 
 BOOST_AUTO_TEST_SUITE_END()
