@@ -21,25 +21,6 @@ namespace deconvolution{
 using namespace alglib;
 
 template <int D>
-void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
-    int var = 0;
-    int label = 0;
-    arrayMap(
-            [&](double& unary) {
-                auto lb = R.getIntervalLB(var, label);
-                auto ub = R.getIntervalUB(var, label);
-                auto nu_i = nu.data()[var];
-                unary = std::min(nu_i*lb, nu_i*ub);
-                label++;
-                if (label == R.maxLabels()) {
-                    label = 0;
-                    var++;
-                }
-            },
-            result);
-}
-
-template <int D>
 double dualObjective(const Regularizer<D>& R,
         const LinearSystem<D>& Q,
         const Array<D>& b, 
@@ -52,11 +33,7 @@ double dualObjective(const Regularizer<D>& R,
     double dataObjective = quadraticMinCG<D>(Q, bPlusNu, x) + constantTerm; 
 
     double unaryObjective = 0;
-    auto lambdaShape = arrayExtents(lambda[0]);
-    Array<D+1> unaries(lambdaShape);
-    addUnaries(R, nu, unaries);
-    for (int i = 0; i < D; ++i)
-        plusEquals(unaries, lambda[i]);
+    auto unaries = sumUnaries(R, nu, lambda);
     arraySubMap<1>(
             [&] (const typename Array<D+1>::template subarray<1>::type& unary_i) {
                 unaryObjective += arrayMin(unary_i);

@@ -32,6 +32,13 @@ double dualObjective(const Regularizer<D>& R,
         double constantTerm,
         const std::vector<Array<D+1>>& lambda);
 
+}
+
+// Implementation
+#include "array-util.hpp"
+
+namespace deconvolution {
+
 template <int D>
 struct nuOptimizeLBFGS {
     public:
@@ -108,6 +115,34 @@ std::vector<Array<D+1>> allocLambda(const Shape& shape) {
     return lambda;
 }
 
+template <int D>
+void addUnaries(const Regularizer<D>& R, const Array<D>& nu, Array<D+1>& result) {
+    int var = 0;
+    int label = 0;
+    arrayMap(
+            [&](double& unary) {
+                auto lb = R.getIntervalLB(var, label);
+                auto ub = R.getIntervalUB(var, label);
+                auto nu_i = nu.data()[var];
+                unary = std::min(nu_i*lb, nu_i*ub);
+                label++;
+                if (label == R.maxLabels()) {
+                    label = 0;
+                    var++;
+                }
+            },
+            result);
+}
+
+template <int D>
+Array<D+1> sumUnaries(const Regularizer<D>& R, const Array<D>& nu, const std::vector<Array<D+1>>& lambda) {
+    auto lambdaShape = arrayExtents(lambda[0]);
+    Array<D+1> unaries(lambdaShape);
+    addUnaries(R, nu, unaries);
+    for (int i = 0; i < D; ++i)
+        plusEquals(unaries, lambda[i]);
+    return unaries;
+}
 
 }
 

@@ -66,37 +66,51 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
     }
 
 
-
-    BOOST_AUTO_TEST_CASE(DualObjective) {
+    struct DualObjectiveFixture {
+        DualObjectiveFixture() {
+            b.assign(bVec.begin(), bVec.end());
+            lambda[0].assign(l1Vec.begin(), l1Vec.end());
+            lambda[1].assign(l2Vec.begin(), l2Vec.end());
+        }
         const int nLabels = 2;
-        auto ep = deconvolution::TruncatedL1{1.0, 1.0};
-        auto R = deconvolution::GridRegularizer<2, 
-             deconvolution::TruncatedL1>{
-            std::vector<int>{2, 3}, 
-            nLabels, 1.0, ep
+        TruncatedL1 ep{1.0, 1.0};
+        GridRegularizer<2, TruncatedL1> R { 
+            std::vector<int>{2, 3}, nLabels, 1.0, ep
         };
         LinearSystem<2> Q = [](const Array<2>& x) { return x; };
         std::vector<double> bVec = {
             1.0, 0.0,
             -1.0, 2.0 };
         Array<2> b{std::vector<int>{2, 2}};
-        b.assign(bVec.begin(), bVec.end());
 
         Array<2> nu{std::vector<int>{2, 2}};
         
-        auto lambda = allocLambda<2>(boost::extents[2][2][2]);
+        std::vector<Array<3>> lambda = allocLambda<2>(boost::extents[2][2][2]);
         std::vector<double> l1Vec = {
             0.0, 1.0,   1.0, 1.0,
-            2.0, 1.0,   0.0, 0.0 };
+            2.0, 1.0,  -7.0, 0.0 };
         std::vector<double> l2Vec = {
-            0.0, 0.0,   0.0, 0.0,
-            0.0, 0.0,   0.0, 0.0 };
-        lambda[0].assign(l1Vec.begin(), l1Vec.end());
-        lambda[1].assign(l2Vec.begin(), l2Vec.end());
+            0.0, 1.0,   2.0, 1.0,
+            1.0, 1.0,  -7.0, 0.0 };
+    };
+
+
+
+    BOOST_FIXTURE_TEST_CASE(DualObjective1, DualObjectiveFixture) {
+        double obj = dualObjective(R, Q, b, nu, 0.0, lambda);
+
+        BOOST_CHECK_CLOSE(obj, -19.5, epsilon);
+    }
+
+    BOOST_FIXTURE_TEST_CASE(DualObjective2, DualObjectiveFixture) {
+        std::vector<double> nuVec = {
+            -1.0, 0.0,
+             1.0,-2.0 };
+        nu.assign(nuVec.begin(), nuVec.end());
 
         double obj = dualObjective(R, Q, b, nu, 0.0, lambda);
 
-        BOOST_CHECK_CLOSE(obj, -3.5, epsilon);
+        BOOST_CHECK_CLOSE(obj, -10.5, epsilon);
     }
 
 BOOST_AUTO_TEST_SUITE_END()
