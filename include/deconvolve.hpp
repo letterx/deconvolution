@@ -1,13 +1,29 @@
 #ifndef _DECONVOLVE_HPP_
 #define _DECONVOLVE_HPP_
 
+#include <exception>
 #include <functional>
 #ifdef NDEBUG
 #define BOOST_DISABLE_ASSERTS
 #endif
 #include <boost/multi_array.hpp>
 
+
 namespace deconvolution {
+
+class DeconvolutionAssertion : public std::logic_error {
+    public:
+        DeconvolutionAssertion(const char* what) : logic_error(what) { }
+};
+
+#ifndef NDEBUG_DECONVOLUTION
+#define DECONV_ASSERT_S1(x) #x
+#define DECONV_ASSERT_S2(x) DECONV_ASSERT_S1(x)
+#define DECONV_ASSERT_LINE DECONV_ASSERT_S2( __LINE__ )
+#define DECONV_ASSERT(x) ((void)(!(x) && (throw DeconvolutionAssertion( "Assertion Failed: " #x " at " __FILE__ ":" DECONV_ASSERT_LINE), 1)))
+#else
+#define DECONV_ASSERT(x) ((void)sizeof(x))
+#endif
 
 template <int D>
 using Array = boost::multi_array<double, D>;

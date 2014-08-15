@@ -7,7 +7,35 @@ using namespace deconvolution;
 
 constexpr double epsilon = 0.0001;
 
-BOOST_AUTO_TEST_SUITE(RegularizerTests)
+BOOST_AUTO_TEST_SUITE(RegularizerHPP)
+
+    BOOST_AUTO_TEST_SUITE(ClassTruncatedL1)
+
+        BOOST_AUTO_TEST_CASE(EdgeFn) {
+            auto ep = TruncatedL1{10.0, 7.0};
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(0.0, 0.0), 0.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 1.0), 0.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-210.0, -210.0), 0.0, epsilon);
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 2.0), 7.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(2.0, 1.0), 7.0, epsilon);
+
+            BOOST_CHECK_CLOSE(ep.edgeFn(1.0, 7.0), 42.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-5.0, 5.0), 70.0, epsilon);
+            BOOST_CHECK_CLOSE(ep.edgeFn(-5.0, 6.0), 70.0, epsilon);
+        }
+
+        BOOST_AUTO_TEST_CASE(EdgeGrad) {
+            auto ep = TruncatedL1{10.0, 7.0};
+
+            double g1, g2;
+            BOOST_CHECK_THROW(ep.edgeGrad(0.0, 0.0, g1, g2), 
+                    DeconvolutionAssertion);
+        }
+
+    BOOST_AUTO_TEST_SUITE_END()
+
 
     BOOST_AUTO_TEST_CASE(BasicInterface) {
         auto ep = TruncatedL1{0, 0};

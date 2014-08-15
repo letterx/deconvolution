@@ -64,16 +64,7 @@ class TruncatedL1 {
             return _smoothWeight*std::min(_smoothMax, fabs(l1 - l2));
         }
         void edgeGrad(double l1, double l2, double& g1, double& g2) const {
-            auto diff = fabs(l1 - l2);
-            if (diff > _smoothMax) {
-                return;
-            } else if (l1 > l2) {
-                g1 += _smoothWeight;
-                g2 += -_smoothWeight;
-            } else {
-                g1 += -_smoothWeight;
-                g2 += _smoothWeight;
-            }
+            DECONV_ASSERT(false && "edgeGrad unimplemented");
         }
 
     private:
