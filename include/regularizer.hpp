@@ -17,7 +17,6 @@ class Regularizer {
         virtual double getLabel(int var, int l) const = 0;
         virtual double getIntervalLB(int var, int l) const = 0;
         virtual double getIntervalUB(int var, int l) const = 0;
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const = 0;
         virtual double minMarginal(int subproblem, 
                 const Array<D+1>& unaries,
                 Array<D+1>& marginals) const = 0;
@@ -39,8 +38,6 @@ class DummyRegularizer : public Regularizer<D> {
         virtual double getLabel(int var, int l) const override { return l == 0 ? 0 : 255; }
         virtual double getIntervalLB(int var, int l) const { return 0; }
         virtual double getIntervalUB(int var, int l) const { return 255; }
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override 
-            { return 0; }
         virtual double minMarginal(int subproblem, 
                 const Array<D+1>& unaries,
                 Array<D+1>& marginals) const { return 0; }
@@ -50,14 +47,10 @@ class DummyRegularizer : public Regularizer<D> {
     private:
 };
 
-template <int D>
-class SmoothRegularizer : public Regularizer<D> {
+class EdgePrototype {
     public:
-        SmoothRegularizer(const std::vector<int>& extents, double smoothMax, double smoothWidth);
-
-        virtual int numSubproblems() const override { return D; }
-        virtual int numLabels() const override { return 1; }
-        virtual double getLabel(int ver, int l) const override { return 0.0; }
+        double edgeFn(double x1, double x2) const;
+        void edgeGrad(double x1, double x2, double& g1, double& g2) const;
 };
 
 class TruncatedL1 {
@@ -202,7 +195,6 @@ class GridRegularizer : public Regularizer<D> {
         virtual double getLabel(int var, int l) const override { return _getLabel(var, l); }
         virtual double getIntervalLB(int var, int l) const { return _getLB(var, l); }
         virtual double getIntervalUB(int var, int l) const { return _getUB(var, l); }
-        virtual double evaluate(int subproblem, const double* lambda_a, double smoothing, double* gradient, double* diagHessian) const override;
         virtual double minMarginal(int subproblem, 
                 const Array<D+1>& unaries,
                 Array<D+1>& marginals) const override;
@@ -217,26 +209,6 @@ class GridRegularizer : public Regularizer<D> {
         std::vector<double> _lowerBounds;
         std::vector<double> _upperBounds;
         EdgePotential _edgePotential;
-};
-
-template <int D, class EdgePotential>
-class GridRangeRegularizer : public GridRegularizer<D, EdgePotential> {
-    public:
-        GridRangeRegularizer(const std::vector<int>& extents,
-                int numLabels,
-                double labelScale,
-                const EdgePotential& edgePotential,
-                double maxLabel)
-            : GridRegularizer<D, EdgePotential>(extents, numLabels, labelScale, edgePotential)
-            , _maxLabel(maxLabel)
-        { }
-
-        virtual double getLabel(int var, int l) const override {
-            return _maxLabel*(static_cast<double>(l)/static_cast<double>(this->_numLabels));
-        }
-
-    protected:
-        double _maxLabel;
 };
 
 }

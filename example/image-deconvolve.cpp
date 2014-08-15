@@ -146,9 +146,9 @@ int main(int argc, char **argv) {
     constexpr int nLabels = 16;
     constexpr double labelScale = 255.0/(nLabels-1);
     auto ep = deconvolution::SmoothEdge{regularizerWeight, regularizerWidth};
-    auto R = deconvolution::GridRangeRegularizer<2, deconvolution::SmoothEdge>{
+    auto R = deconvolution::GridRegularizer<2, deconvolution::SmoothEdge>{
         std::vector<int>{width, height}, 
-        nLabels, labelScale, ep, 255.0
+        nLabels, labelScale, ep 
     };
 
     cv::namedWindow("Display Window", CV_WINDOW_AUTOSIZE);
@@ -173,15 +173,17 @@ int main(int argc, char **argv) {
             double alpha = static_cast<double>(iter)/static_cast<double>(numAnnealIters);
             typedef deconvolution::ConvexCombEdge<deconvolution::SmoothEdge, deconvolution::L2Edge> AnnealEdge;
             auto epSmooth = AnnealEdge{ep, deconvolution::L2Edge{1.0/regularizerWidth}, alpha};
-            auto Rsmooth = deconvolution::GridRangeRegularizer<2, AnnealEdge>{
+            auto Rsmooth = deconvolution::GridRegularizer<2, AnnealEdge>{
                 std::vector<int>{width, height},
-                    nLabels, labelScale, epSmooth, 255.0 };
+                    nLabels, labelScale, epSmooth};
 
             deblur = deconvolution::DeconvolvePrimal<2>(y, H, H, Rsmooth, progressCallback, params, s, deblur);
             showImage(deblur);
         }
     } else if (method == std::string("dual")) {
-        deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
+        std::cout << "Unimplemented!\n";
+        exit(-1);
+        //deblur = deconvolution::Deconvolve<2>(y, H, H, R, progressCallback, params, s);
     } else if (method == std::string("bp")) {
         deblur = deconvolution::DeconvolveConvexBP<2>(y, H, H, R, progressCallback, params, s);
     } else {

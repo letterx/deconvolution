@@ -41,7 +41,7 @@ set(libs
 
 set(deconvolve-sources
     src/ceres.cpp
-    src/deconvolve.cpp
+    #src/deconvolve.cpp
     src/deconvolve-bp.cpp
     src/optimal-grad.cpp
     src/primal.cpp
