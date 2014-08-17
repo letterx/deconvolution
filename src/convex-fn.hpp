@@ -92,7 +92,7 @@ inline ConvexFn PiecewiseLinearFn::convexify() const {
             }
         }
     }
-    return ConvexFn{xs.begin(), xs.end(), fx.begin()};
+    return ConvexFn{xs.begin()+1, xs.end(), fx.begin()+1};
 }
 
 inline double ConvexFn::moreauY(double x, double t) const {

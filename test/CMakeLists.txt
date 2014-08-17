@@ -1,4 +1,5 @@
 set(test-sources
+    test-convex-fn.cpp
     test-deconvolve-bp.cpp
     test-project-simplex.cpp
     test-regularizer.cpp
