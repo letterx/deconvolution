@@ -65,7 +65,7 @@ void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
 
     const double t = 0.001;
     auto algData = nuOptimizeLBFGS<D>{Q, b, R, lambda, t};
-    minlbfgssetcond(lbfgsState, 0.0, 0.0, 0, 10);
+    minlbfgssetcond(lbfgsState, 0.01, 0.0, 0, 0);
 
     minlbfgsoptimize(lbfgsState, 
             nuOptimizeLBFGS<D>::evaluate, 
@@ -106,6 +106,7 @@ void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
 
 template <int D>
 void nuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
+    std::cout << "\tnuOptimize objective: " << fx << "\n";
 
 }
 
