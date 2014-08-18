@@ -45,6 +45,7 @@ struct NuOptimizeLBFGS {
                 const Array<D>& b,
                 const Regularizer<D>& R,
                 const std::vector<Array<D+1>>& lambda,
+                Array<D>& xHint,
                 Array<D>& nu);
 
         static void evaluate(const real_1d_array& lbfgsX,

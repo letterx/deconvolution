@@ -52,10 +52,11 @@ void NuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
         const Array<D>& b,
         const Regularizer<D>& R,
         const std::vector<Array<D+1>>& lambda,
+        Array<D>& xHint,
         Array<D>& nu) {
 
     real_1d_array lbfgsX;
-    lbfgsX.setcontent(nu.num_elements(), nu.data());
+    lbfgsX.setcontent(nu.num_elements(), xHint.data());
 
     minlbfgsstate lbfgsState;
     minlbfgsreport lbfgsReport;
@@ -65,7 +66,7 @@ void NuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
 
     const double t = 0.001;
     auto algData = NuOptimizeLBFGS<D>{Q, b, R, lambda, t};
-    minlbfgssetcond(lbfgsState, 0.01, 0.0, 0, 0);
+    minlbfgssetcond(lbfgsState, 0.1, 0.0, 0, 0);
 
     minlbfgsoptimize(lbfgsState, 
             NuOptimizeLBFGS<D>::evaluate, 
@@ -73,11 +74,9 @@ void NuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
             &algData);
     minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
 
-    auto shape = arrayExtents(b);
-    Array<D> x{shape};
-    for (size_t i = 0; i < x.num_elements(); ++i)
-        x.data()[i] = lbfgsX.getcontent()[i];
-    nu = -2.0 * Q(x) + b;
+    for (size_t i = 0; i < xHint.num_elements(); ++i)
+        xHint.data()[i] = lbfgsX.getcontent()[i];
+    nu = -2.0 * Q(xHint) + b;
 }
 
 template <int D>
@@ -158,30 +157,31 @@ Array<D> DeconvolveConvexBP(
         DeconvolveStats& s) {
     Array<D> b = 2*Ht(y);
     const auto shape = arrayExtents(b);
-    Array<D> x(shape);
+    Array<D> xHint(shape);
     LinearSystem<D> Q = [&](const Array<D>& x) -> Array<D> { 
         return Ht(H(x)) + params.dataSmoothing*x; 
     };
     double constantTerm = dot(y, y);
 
-    int numPrimalVars = x.num_elements();
-    const auto lambdaShape = arrayExtents(x)[R.maxLabels()];
+    int numPrimalVars = xHint.num_elements();
+    const auto lambdaShape = arrayExtents(xHint)[R.maxLabels()];
     auto lambda = allocLambda<D>(lambdaShape);
     auto primalMu_i = std::vector<double>(numPrimalVars*R.maxLabels(), 0.0);
 
     auto modifiedUnaries = Array<D+1>{lambdaShape};
     auto nu = Array<D>{shape};
 
-    // Initialize x to 0 to find the least norm solution to Qx = b
-    for (size_t i = 0; i < x.num_elements(); ++i)
-        x.data()[i] = 0;
+    // Initialize xHint to 0 to find the least norm solution to Qx = b
+    for (size_t i = 0; i < xHint.num_elements(); ++i)
+        xHint.data()[i] = 0;
 
     std::cout << "Finding least-squares fit\n";
-    quadraticMinCG<D>(Q, b, x);
+    quadraticMinCG<D>(Q, b, xHint);
     auto dualObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
 
     bool converged = false;
     int iter = 0;
+    const int maxIter = 10;
     while (!converged) {
         std::cout << "Iter: " << iter << "\n";
 
@@ -207,19 +207,21 @@ Array<D> DeconvolveConvexBP(
        }
        // run steps of gradient descent on data-term + soft-min of modified unaries
        
-       NuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, nu);
+       NuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, xHint, nu);
 
        auto newObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
-       assert(newObj >= dualObj);
+       //assert(newObj >= dualObj);
        dualObj = newObj;
 
        std::cout << "Dual: " << dualObj << "\n";
 
        iter++;
+       if (iter > maxIter)
+           break;
 
     }
 
-    return x;
+    return xHint;
 }
 
 #define INSTANTIATE_DECONVOLVE(d)                                              \
