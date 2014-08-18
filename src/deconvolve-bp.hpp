@@ -85,6 +85,7 @@ struct NuOptimizeLBFGS {
                 double& objective,
                 real_1d_array& lbfgsGrad);
         void _progress(const real_1d_array& lbfgsX, double fx);
+        void getNu(const Array<D>& x, Array<D>& nu);
 
     protected:
 

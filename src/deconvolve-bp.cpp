@@ -76,7 +76,7 @@ void NuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
 
     for (size_t i = 0; i < xHint.num_elements(); ++i)
         xHint.data()[i] = lbfgsX.getcontent()[i];
-    nu = -2.0 * Q(xHint) + b;
+    algData.getNu(xHint, nu);
 }
 
 template <int D>
@@ -99,14 +99,26 @@ void NuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
         objective += _lambdaSum[i].moreauEnvelope(x.data()[i], _t);
         lbfgsGrad.getcontent()[i] += _lambdaSum[i].moreauGrad(x.data()[i], _t);
     }
-
-
 }
 
 template <int D>
 void NuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
     std::cout << "\tNuOptimize objective: " << fx << "\n";
 
+}
+
+template <int D>
+void NuOptimizeLBFGS<D>::getNu(const Array<D>& x, Array<D>& nu) {
+    const int n = x.num_elements();
+    auto Qx = _Q(x);
+    for (int i = 0; i < n; ++i)
+        nu.data()[i] = 2*Qx.data()[i] - _b.data()[i];
+
+    assert(n == static_cast<int>(_lambdaSum.size()));
+    for (int i = 0; i < n; ++i) {
+        nu.data()[i] -= _lambdaSum[i].moreauGrad(x.data()[i], _t);
+        nu.data()[i] *= 0.5;
+    }
 }
 
 template <int D>
