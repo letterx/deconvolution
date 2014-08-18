@@ -40,8 +40,7 @@ double dualObjective(const Regularizer<D>& R,
 namespace deconvolution {
 
 template <int D>
-struct nuOptimizeLBFGS {
-    public:
+struct NuOptimizeLBFGS {
         static void optimize(const LinearSystem<D>& Q,
                 const Array<D>& b,
                 const Regularizer<D>& R,
@@ -53,7 +52,7 @@ struct nuOptimizeLBFGS {
                 real_1d_array& lbfgsGrad,
                 void* instance) 
         {
-            static_cast<nuOptimizeLBFGS*>(instance)
+            static_cast<NuOptimizeLBFGS*>(instance)
                 ->_evaluate(lbfgsX, objective, lbfgsGrad);
         }
 
@@ -61,12 +60,14 @@ struct nuOptimizeLBFGS {
                 double fx,
                 void *instance)
         {
-            static_cast<nuOptimizeLBFGS*>(instance)
+            static_cast<NuOptimizeLBFGS*>(instance)
                 ->_progress(lbfgsX, fx);
         }
+        static std::vector<ConvexFn> sumLambda(
+                const std::vector<Array<D+1>>& lambda,
+                const Regularizer<D>& R);
 
-    protected:
-        nuOptimizeLBFGS(const LinearSystem<D>& Q,
+        NuOptimizeLBFGS(const LinearSystem<D>& Q,
                 const Array<D>& b,
                 const Regularizer<D>& R,
                 const std::vector<Array<D+1>>& lambda,
@@ -83,8 +84,8 @@ struct nuOptimizeLBFGS {
                 double& objective,
                 real_1d_array& lbfgsGrad);
         void _progress(const real_1d_array& lbfgsX, double fx);
-        std::vector<ConvexFn> sumLambda(const std::vector<Array<D+1>>& lambda,
-                const Regularizer<D>& R) const;
+
+    protected:
 
         const LinearSystem<D>& _Q;
         const Array<D>& _b;

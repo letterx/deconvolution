@@ -48,7 +48,7 @@ double dualObjective(const Regularizer<D>& R,
 }
 
 template <int D>
-void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
+void NuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
         const Array<D>& b,
         const Regularizer<D>& R,
         const std::vector<Array<D+1>>& lambda,
@@ -64,12 +64,12 @@ void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
     minlbfgssetxrep(lbfgsState, true);
 
     const double t = 0.001;
-    auto algData = nuOptimizeLBFGS<D>{Q, b, R, lambda, t};
+    auto algData = NuOptimizeLBFGS<D>{Q, b, R, lambda, t};
     minlbfgssetcond(lbfgsState, 0.01, 0.0, 0, 0);
 
     minlbfgsoptimize(lbfgsState, 
-            nuOptimizeLBFGS<D>::evaluate, 
-            nuOptimizeLBFGS<D>::progress, 
+            NuOptimizeLBFGS<D>::evaluate, 
+            NuOptimizeLBFGS<D>::progress, 
             &algData);
     minlbfgsresults(lbfgsState, lbfgsX, lbfgsReport);
 
@@ -81,7 +81,7 @@ void nuOptimizeLBFGS<D>::optimize(const LinearSystem<D>& Q,
 }
 
 template <int D>
-void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
+void NuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
                 double& objective,
                 real_1d_array& lbfgsGrad) {
     auto shape = arrayExtents(_b);
@@ -98,22 +98,22 @@ void nuOptimizeLBFGS<D>::_evaluate(const real_1d_array& lbfgsX,
     assert(n == static_cast<int>(_lambdaSum.size()));
     for (int i = 0; i < n; ++i) {
         objective += _lambdaSum[i].moreauEnvelope(x.data()[i], _t);
-        lbfgsGrad.getcontent()[i] -= _lambdaSum[i].moreauGrad(x.data()[i], _t);
+        lbfgsGrad.getcontent()[i] += _lambdaSum[i].moreauGrad(x.data()[i], _t);
     }
 
 
 }
 
 template <int D>
-void nuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
-    std::cout << "\tnuOptimize objective: " << fx << "\n";
+void NuOptimizeLBFGS<D>::_progress(const real_1d_array& lbfgsX, double fx) {
+    std::cout << "\tNuOptimize objective: " << fx << "\n";
 
 }
 
 template <int D>
-std::vector<ConvexFn> nuOptimizeLBFGS<D>::sumLambda(
+std::vector<ConvexFn> NuOptimizeLBFGS<D>::sumLambda(
         const std::vector<Array<D+1>>& lambda,
-        const Regularizer<D>& R) const {
+        const Regularizer<D>& R) {
     // typedef for array of lambda for a single variable
     typedef typename Array<D+1>::template subarray<1>::type Lambda_i;
 
@@ -207,7 +207,7 @@ Array<D> DeconvolveConvexBP(
        }
        // run steps of gradient descent on data-term + soft-min of modified unaries
        
-       nuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, nu);
+       NuOptimizeLBFGS<D>::optimize(Q, b, R, lambda, nu);
 
        auto newObj = dualObjective(R, Q, b, nu, constantTerm, lambda);
        assert(newObj >= dualObj);

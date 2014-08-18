@@ -9,6 +9,10 @@ constexpr double epsilon = 0.0001;
 
 BOOST_AUTO_TEST_SUITE(DeconvolveBP)
 
+/* 
+ * LambdaOrder Tests
+ */
+
     BOOST_AUTO_TEST_CASE(LambdaOrder) {
         {
             auto order = lambdaOrder<1>(0);
@@ -65,6 +69,9 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
 
     }
 
+/*
+ * AddUnaries Tests
+ */
 
     struct DualObjectiveFixture {
         DualObjectiveFixture() {
@@ -126,6 +133,10 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
         }
     }
 
+/*
+ * DualObjective Tests
+ */
+
     BOOST_FIXTURE_TEST_CASE(DualObjective1, DualObjectiveFixture) {
         double obj = dualObjective(R, Q, b, nu, 0.0, lambda);
 
@@ -143,4 +154,64 @@ BOOST_AUTO_TEST_SUITE(DeconvolveBP)
         BOOST_CHECK_CLOSE(obj, 0 + -13.0 + -4.0 + -4.0, epsilon);
     }
 
+
+/*
+ * NuOptimizeLBFGS Tests
+ */
+    struct NuOptimizeLBFGSFixture {
+        LinearSystem<1> Q = [](const Array<1>& x) { return x; };
+        Array<1> b { boost::extents[3] };
+        std::vector<double> bVec = { 1.0, -2.0, 0.5 };
+        TruncatedL1 ep { 1.0, 1.0 };
+        GridRegularizer<1, TruncatedL1> R { std::vector<int>{3}, 3, 1.0, ep };
+        std::vector<Array<2>> lambda { 1, Array<2>{ boost::extents[3][3] } };
+        std::vector<double> lambdaVec = {
+            2.0, 0.0, 2.0,
+            1.0, 0.5, 0.0,
+            0.0, 1.0, 0.0
+        };
+        double t = 0.1;
+        real_1d_array lbfgsX = "[0.0, 0.0, 0.0]";
+        real_1d_array lbfgsGrad = "[0.0, 0.0, 0.0]";
+
+        NuOptimizeLBFGSFixture() {
+            b.assign(bVec.begin(), bVec.end());
+            lambda[0].assign(lambdaVec.begin(), lambdaVec.end());
+        }
+    };
+
+    BOOST_FIXTURE_TEST_SUITE(ClassNuOptimiseLBFGS, NuOptimizeLBFGSFixture)
+
+        BOOST_AUTO_TEST_CASE(SumLambda) {
+            auto sumLambda = NuOptimizeLBFGS<1>::sumLambda(lambda, R);
+            BOOST_CHECK_EQUAL(sumLambda[0](0.0), 2.0);
+            BOOST_CHECK_EQUAL(sumLambda[0](1.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[0](2.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[0](3.0), 2.0);
+
+            BOOST_CHECK_EQUAL(sumLambda[1](0.0), 1.0);
+            BOOST_CHECK_EQUAL(sumLambda[1](1.0), 0.5);
+            BOOST_CHECK_EQUAL(sumLambda[1](2.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[1](3.0), 0.0);
+
+            BOOST_CHECK_EQUAL(sumLambda[2](0.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[2](1.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[2](2.0), 0.0);
+            BOOST_CHECK_EQUAL(sumLambda[2](3.0), 0.0);
+        }
+
+        BOOST_AUTO_TEST_CASE(Evaluate) {
+            auto opt = deconvolution::NuOptimizeLBFGS<1>{ Q, b, R, lambda, t };
+            double obj = 0.0;
+            opt._evaluate(lbfgsX, obj, lbfgsGrad);
+            BOOST_CHECK_CLOSE(obj, 0 + 1.8 + .9875 + 0, epsilon);
+            BOOST_CHECK_CLOSE(lbfgsGrad[0], -3.0, epsilon);
+            BOOST_CHECK_CLOSE(lbfgsGrad[1],  1.5, epsilon);
+            BOOST_CHECK_CLOSE(lbfgsGrad[2], -0.5, epsilon);
+
+        }
+
+
+    BOOST_AUTO_TEST_SUITE_END()
+    
 BOOST_AUTO_TEST_SUITE_END()
